@@ -78,6 +78,9 @@
         color: #856404;
       }
     </style>
+    <!-- Supabase client CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm" type="module"></script>
+    <script type="module" src="./supabase.js"></script>
   </head>
   <body>
     <h2>Cutting Record</h2>
@@ -88,7 +91,7 @@
     <label for="cutterId">Cutter ID:</label>
     <select id="cutterId">
       <option value="">Loading Cutters...</option>
-      </select>
+    </select>
 
     <label for="tonsCut">Tons Cut (Tons):</label>
     <input type="number" id="tonsCut" min="0" step="0.1" placeholder="e.g., 5.5">
@@ -97,13 +100,13 @@
 
     <div id="status">Checking connection...</div>
 
-    <script>
-      // Run these functions when the page is fully loaded
+    <script type="module">
+      import { supabase } from './supabase.js';
+
       document.addEventListener('DOMContentLoaded', () => {
         updateStatus();
         loadCutterData();
         syncOfflineData();
-      
         window.addEventListener('online', updateStatus);
         window.addEventListener('offline', updateStatus);
         window.addEventListener('online', syncOfflineData);
@@ -116,7 +119,6 @@
       function updateStatus() {
         const statusElement = document.getElementById('status');
         const pendingCount = JSON.parse(localStorage.getItem('offlineSubmissions') || '[]').length;
-
         if (isOnline()) {
           if (pendingCount > 0) {
             statusElement.textContent = `Online (${pendingCount} pending sync)`;
@@ -131,40 +133,36 @@
         }
       }
 
-      // Fetches cutter names and IDs from Apps Script and populates the dropdown
-      function loadCutterData() {
-        google.script.run
-          .withSuccessHandler((response) => {
-            const select = document.getElementById('cutterId');
-            select.innerHTML = '<option value="">Select Cutter</option>';
-
-            if (response.status === 'success' && Array.isArray(response.data)) {
-              response.data.forEach(cutter => {
-                const option = document.createElement('option');
-                option.value = cutter.id;
-                option.textContent = cutter.name;
-                select.appendChild(option);
-              });
-            } else {
-                console.error('Error in server response for cutters:', response.message || 'No error message provided.');
-                select.innerHTML = '<option value="">Error loading cutters. Please refresh.</option>';
-                alert('Error loading cutters: ' + (response.message || 'Unknown error. Please try refreshing.'));
-            }
-          })
-          .withFailureHandler((error) => {
-              console.error('Server error fetching cutter data from Apps Script:', error);
-              const select = document.getElementById('cutterId');
-              select.innerHTML = '<option value="">Server Error. Please refresh.</option>';
-              alert('Server communication error. Failed to load cutters. Please try refreshing.');
-          })
-          .getCutterNamesAndIDs();
+      // Fetches cutter names and IDs from Supabase and populates the dropdown
+      async function loadCutterData() {
+        const select = document.getElementById('cutterId');
+        select.innerHTML = '<option value="">Loading Cutters...</option>';
+        const { data, error } = await supabase
+          .from('CaneCutters')
+          .select('cutter_id, name, surname');
+        select.innerHTML = '<option value="">Select Cutter</option>';
+        if (error) {
+          console.error('Error loading cutters:', error.message);
+          select.innerHTML = '<option value="">Error loading cutters. Please refresh.</option>';
+          alert('Error loading cutters: ' + error.message);
+          return;
+        }
+        if (data && data.length > 0) {
+          data.forEach(cutter => {
+            const option = document.createElement('option');
+            option.value = cutter.cutter_id;
+            option.textContent = cutter.name + ' ' + cutter.surname;
+            select.appendChild(option);
+          });
+        } else {
+          select.innerHTML = '<option value="">No cutters found</option>';
+        }
       }
 
-      function submitForm() {
+      window.submitForm = async function() {
         const date = document.getElementById('cutDate').value;
         const cutterId = document.getElementById('cutterId').value;
         const tons = document.getElementById('tonsCut').value;
-
         if (!date) {
           alert('Please select a Date of Cut.');
           return;
@@ -177,24 +175,33 @@
           alert('Please enter a valid amount of Tons Cut (must be a number greater than 0).');
           return;
         }
-
         const submission = {
           type: 'dailyCut',
           dateOfCut: date,
           cutterId: cutterId,
           tonsCut: parseFloat(tons)
         };
-
         if (isOnline()) {
-          google.script.run
-            .withSuccessHandler((response) => handleOnlineSubmissionResponse(response, submission))
-            .withFailureHandler((error) => handleOnlineSubmissionError(error, submission))
-            .recordDailyCut(submission.dateOfCut, submission.cutterId, submission.tonsCut);
+          // Insert into Supabase
+          const { error } = await supabase.from('DailyCuts').insert([
+            {
+              date_of_cut: submission.dateOfCut,
+              cutter_id: submission.cutterId,
+              tons_cut: submission.tonsCut
+            }
+          ]);
+          if (!error) {
+            alert('Daily cut recorded successfully!');
+            updateStatus();
+          } else {
+            alert('Server error: ' + error.message + ' It has been queued for offline sync.');
+            saveToOfflineQueue(submission);
+            updateStatus();
+          }
         } else {
           saveToOfflineQueue(submission);
           alert('Offline: Data saved locally. It will sync automatically when you are back online.');
         }
-
         document.getElementById('cutDate').value = '';
         document.getElementById('cutterId').value = '';
         document.getElementById('tonsCut').value = '';
@@ -208,99 +215,61 @@
         updateStatus();
       }
 
-      function syncOfflineData() {
+      async function syncOfflineData() {
         if (!isOnline()) {
           console.log('Still offline, cannot sync.');
           return;
         }
-
         let queue = JSON.parse(localStorage.getItem('offlineSubmissions') || '[]');
-
         if (queue.length === 0) {
           console.log('No offline data to sync.');
           updateStatus();
           return;
         }
-
         console.log(`Attempting to sync ${queue.length} offline items.`);
         alert(`Attempting to sync ${queue.length} offline items...`);
-
-        const promises = queue.map((item) => {
-          return new Promise((resolve) => {
-            if (item.type === 'dailyCut') {
-              google.script.run
-                .withSuccessHandler((response) => {
-                  if (response.status === 'success') {
-                    // Successfully synced, resolve with success status
-                    resolve({ success: true, item: item });
-                  } else {
-                    // Server reported an error, resolve with failure status (but not a rejected promise)
-                    console.error('Server reported error for item during sync:', response.message, item);
-                    resolve({ success: false, item: item, error: response.message });
-                  }
-                })
-                .withFailureHandler((error) => {
-                  // Apps Script invocation error (network, script error before response)
-                  console.error('Apps Script invocation failed during sync:', error, item);
-                  resolve({ success: false, item: item, error: error.message || 'Unknown Apps Script error' });
-                })
-                .recordDailyCut(item.dateOfCut, item.cutterId, item.tonsCut);
-            } else {
-              // Handle other types if added, for now mark as unknown failure
-              resolve({ success: false, item: item, error: 'Unknown submission type' });
-            }
-          });
-        });
-
-        Promise.allSettled(promises).then(results => {
-          const newQueue = [];
-          let syncedCount = 0;
-          results.forEach(result => {
-            // Check the 'value.success' property we set in our resolved promise
-            if (result.status === 'fulfilled' && result.value.success) {
+        let newQueue = [];
+        let syncedCount = 0;
+        for (const item of queue) {
+          if (item.type === 'dailyCut') {
+            const { error } = await supabase.from('DailyCuts').insert([
+              {
+                date_of_cut: item.dateOfCut,
+                cutter_id: item.cutterId,
+                tons_cut: item.tonsCut
+              }
+            ]);
+            if (!error) {
               syncedCount++;
             } else {
-              // If the promise was fulfilled but indicated failure, or if it was rejected
-              // We need to ensure that 'item' is always accessible, even if 'value' or 'reason' is missing properties.
-              // Re-queue the original item itself.
-              const failedItem = result.status === 'fulfilled' ? result.value.item : result.reason?.item || result.value?.item || null; // Prioritize original item from value/reason, fallback to null
-              const errorMessage = result.status === 'fulfilled' ? (result.value.error || 'Server reported failure') : (result.reason?.message || 'Promise rejected unexpectedly');
-              
-              if (failedItem) { // Only re-queue if we have the item
-                  newQueue.push(failedItem);
-              }
-              console.error('Failed to sync item:', errorMessage, failedItem);
+              newQueue.push(item);
+              console.error('Failed to sync item:', error.message, item);
             }
-          });
-
-          localStorage.setItem('offlineSubmissions', JSON.stringify(newQueue));
-          updateStatus();
-
-          if (syncedCount > 0) {
-            alert(`Synced ${syncedCount} item(s) successfully!`);
+          } else {
+            newQueue.push(item);
+            console.error('Unknown submission type:', item);
           }
-          if (newQueue.length > 0) {
-            alert(`Could not sync ${newQueue.length} item(s). They remain in the offline queue.`);
-          }
-        });
-      }
-
-      function handleOnlineSubmissionResponse(response, originalSubmission) {
-        if (response && response.status === 'success') {
-          alert('Daily cut recorded successfully!');
-          updateStatus();
-        } else {
-          alert('Server error: ' + (response.message || 'data not saved.') + ' It has been queued for offline sync.');
-          saveToOfflineQueue(originalSubmission);
-          updateStatus();
+        }
+        localStorage.setItem('offlineSubmissions', JSON.stringify(newQueue));
+        updateStatus();
+        if (syncedCount > 0) {
+          alert(`Synced ${syncedCount} item(s) successfully!`);
+        }
+        if (newQueue.length > 0) {
+          alert(`Could not sync ${newQueue.length} item(s). They remain in the offline queue.`);
         }
       }
-
-      function handleOnlineSubmissionError(error, originalSubmission) {
-        console.error('Online submission failed:', error);
-        alert('Network or server error: ' + (error.message || 'Unknown error.') + ' Data has been saved offline and will sync later.');
-        saveToOfflineQueue(originalSubmission);
-        updateStatus();
+    </script>
+    <script>
+      // Register service worker for offline/PWA support
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('/service-worker.js').then(function(registration) {
+            console.log('ServiceWorker registration successful with scope: ', registration.scope);
+          }, function(err) {
+            console.log('ServiceWorker registration failed: ', err);
+          });
+        });
       }
     </script>
   </body>
