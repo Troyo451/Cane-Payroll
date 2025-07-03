@@ -79,8 +79,8 @@
       }
     </style>
     <!-- Supabase client CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm" type="module"></script>
-    <script type="module" src="./supabase.js"></script>
+    <!-- <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm" type="module"></script> -->
+    <!-- <script type="module" src="./supabase.js"></script> -->
   </head>
   <body>
     <h2>Cutting Record</h2>
@@ -101,7 +101,10 @@
     <div id="status">Checking connection...</div>
 
     <script type="module">
-      import { supabase } from './supabase.js';
+      import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+      const SUPABASE_URL = 'https://zgacwkiklejtgmmmands.supabase.co';
+      const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpnYWN3a2lrbGVqdGdtbW1hbmRzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE1MzEzODksImV4cCI6MjA2NzEwNzM4OX0.EZ4DnfKhKjVuPISX_G5vPnUoxyOI9EOi2pH4CpO_KB0';
+      const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
       document.addEventListener('DOMContentLoaded', () => {
         updateStatus();
@@ -264,7 +267,7 @@
       // Register service worker for offline/PWA support
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', function() {
-          navigator.serviceWorker.register('/service-worker.js').then(function(registration) {
+          navigator.serviceWorker.register('./service-worker.js').then(function(registration) {
             console.log('ServiceWorker registration successful with scope: ', registration.scope);
           }, function(err) {
             console.log('ServiceWorker registration failed: ', err);
