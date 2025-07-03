@@ -138,7 +138,7 @@
         const select = document.getElementById('cutterId');
         select.innerHTML = '<option value="">Loading Cutters...</option>';
         const { data, error } = await supabase
-          .from('CaneCutters')
+          .from('canecutters')
           .select('cutter_id, name, surname');
         select.innerHTML = '<option value="">Select Cutter</option>';
         if (error) {
@@ -183,7 +183,7 @@
         };
         if (isOnline()) {
           // Insert into Supabase
-          const { error } = await supabase.from('DailyCuts').insert([
+          const { error } = await supabase.from('dailycuts').insert([
             {
               date_of_cut: submission.dateOfCut,
               cutter_id: submission.cutterId,
@@ -232,7 +232,7 @@
         let syncedCount = 0;
         for (const item of queue) {
           if (item.type === 'dailyCut') {
-            const { error } = await supabase.from('DailyCuts').insert([
+            const { error } = await supabase.from('dailycuts').insert([
               {
                 date_of_cut: item.dateOfCut,
                 cutter_id: item.cutterId,
