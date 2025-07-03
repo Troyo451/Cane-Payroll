@@ -1,8 +1,7 @@
 const CACHE_NAME = 'cane-payroll-cache-v1';
 const ASSETS_TO_CACHE = [
-  '/',
-  '/index.html',
-  '/supabase.js',
+  './',
+  './index.html',
   // Add more assets here if needed
 ];
 
