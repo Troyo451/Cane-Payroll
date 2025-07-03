@@ -83,22 +83,48 @@
     <!-- <script type="module" src="./supabase.js"></script> -->
   </head>
   <body>
-    <h2>Cutting Record</h2>
+    <div id="onlineStatus" style="position:fixed;top:10px;right:10px;z-index:1000;"></div>
+    <button id="backToHomeBtn" style="position:fixed;top:10px;left:10px;z-index:1000;display:none;background-color:#e53935;color:white;border:none;border-radius:8px;padding:12px 22px;font-size:1.1em;box-shadow:0 2px 6px rgba(0,0,0,0.12);cursor:pointer;transition:background-color 0.2s;" onclick="showLanding()">Return to home</button>
+    <div id="landingView">
+      <h2>Cane Payroll App</h2>
+      <button onclick="showDataCapture()">Data Capture</button>
+      <button onclick="showAdmin()">Admin</button>
+    </div>
 
-    <label for="cutDate">Date of Cut:</label>
-    <input type="date" id="cutDate">
+    <div id="dataCaptureView" style="display:none;">
+      <h2>Truck Data Capture</h2>
+      <form id="truckForm" onsubmit="return false;">
+        <label for="truckNumber">Truck Number:</label>
+        <input type="text" id="truckNumber" required>
 
-    <label for="cutterId">Cutter ID:</label>
-    <select id="cutterId">
-      <option value="">Loading Cutters...</option>
-    </select>
+        <label for="cutDate">Date of Cut:</label>
+        <input type="date" id="cutDateTruck" required>
 
-    <label for="tonsCut">Tons Cut (Tons):</label>
-    <input type="number" id="tonsCut" min="0" step="0.1" placeholder="e.g., 5.5">
+        <label for="fieldNumbers">Field Number(s):</label>
+        <input type="text" id="fieldNumbers" placeholder="e.g., 1,2,3" required>
 
-    <button onclick="submitForm()">Submit Cut</button>
+        <div id="cuttersSection">
+          <h3>Cutter Weights</h3>
+          <div id="cuttersList"></div>
+          <button type="button" onclick="addCutterRow()">Add Cutter</button>
+        </div>
 
-    <div id="status">Checking connection...</div>
+        <button type="submit" onclick="submitTruckForm()">Submit Truck Load</button>
+      </form>
+      <div id="dataCaptureStatus"></div>
+    </div>
+
+    <div id="adminView" style="display:none;">
+      <h2>Admin Dashboard</h2>
+      <div>
+        <button onclick="showAdminSection('truckLoads')">Truck Loads</button>
+        <button onclick="showAdminSection('cutters')">Cutters</button>
+        <button onclick="showAdminSection('deductions')">Deductions</button>
+        <button onclick="showAdminSection('config')">Config</button>
+        <button onclick="showAdminSection('reports')">Reports</button>
+      </div>
+      <div id="adminSectionContainer"></div>
+    </div>
 
     <script type="module">
       import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
@@ -107,31 +133,32 @@
       const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
       document.addEventListener('DOMContentLoaded', () => {
-        updateStatus();
+        updateOnlineStatusIndicator();
         loadCutterData();
         syncOfflineData();
-        window.addEventListener('online', updateStatus);
-        window.addEventListener('offline', updateStatus);
+        window.addEventListener('online', updateOnlineStatusIndicator);
+        window.addEventListener('offline', updateOnlineStatusIndicator);
         window.addEventListener('online', syncOfflineData);
+        updateBackToHomeBtn();
       });
 
       function isOnline() {
         return navigator.onLine;
       }
 
-      function updateStatus() {
-        const statusElement = document.getElementById('status');
-        const pendingCount = JSON.parse(localStorage.getItem('offlineSubmissions') || '[]').length;
-        if (isOnline()) {
+      function updateOnlineStatusIndicator() {
+        const statusElement = document.getElementById('onlineStatus');
+        const pendingCount = JSON.parse(localStorage.getItem('offlineTruckSubmissions') || '[]').length;
+        if (navigator.onLine) {
           if (pendingCount > 0) {
-            statusElement.textContent = `Online (${pendingCount} pending sync)`;
+            statusElement.textContent = `Online (${pendingCount} truck loads pending sync)`;
             statusElement.className = 'pending-sync-status';
           } else {
             statusElement.textContent = 'Online ✅';
             statusElement.className = 'online-status';
           }
         } else {
-          statusElement.textContent = `Offline ❌ (${pendingCount} pending)`;
+          statusElement.textContent = `Offline ❌ (${pendingCount} truck loads pending)`;
           statusElement.className = 'offline-status';
         }
       }
@@ -195,11 +222,11 @@
           ]);
           if (!error) {
             alert('Daily cut recorded successfully!');
-            updateStatus();
+            updateOnlineStatusIndicator();
           } else {
             alert('Server error: ' + error.message + ' It has been queued for offline sync.');
             saveToOfflineQueue(submission);
-            updateStatus();
+            updateOnlineStatusIndicator();
           }
         } else {
           saveToOfflineQueue(submission);
@@ -208,14 +235,14 @@
         document.getElementById('cutDate').value = '';
         document.getElementById('cutterId').value = '';
         document.getElementById('tonsCut').value = '';
-        updateStatus();
+        updateOnlineStatusIndicator();
       }
 
       function saveToOfflineQueue(item) {
         let queue = JSON.parse(localStorage.getItem('offlineSubmissions')) || [];
         queue.push(item);
         localStorage.setItem('offlineSubmissions', JSON.stringify(queue));
-        updateStatus();
+        updateOnlineStatusIndicator();
       }
 
       async function syncOfflineData() {
@@ -226,7 +253,7 @@
         let queue = JSON.parse(localStorage.getItem('offlineSubmissions') || '[]');
         if (queue.length === 0) {
           console.log('No offline data to sync.');
-          updateStatus();
+          updateOnlineStatusIndicator();
           return;
         }
         console.log(`Attempting to sync ${queue.length} offline items.`);
@@ -254,7 +281,7 @@
           }
         }
         localStorage.setItem('offlineSubmissions', JSON.stringify(newQueue));
-        updateStatus();
+        updateOnlineStatusIndicator();
         if (syncedCount > 0) {
           alert(`Synced ${syncedCount} item(s) successfully!`);
         }
@@ -262,6 +289,675 @@
           alert(`Could not sync ${newQueue.length} item(s). They remain in the offline queue.`);
         }
       }
+
+      let cachedCutters = [];
+
+      async function cacheCutters() {
+        // Try to fetch from Supabase, else use localStorage
+        let cutters = [];
+        let online = navigator.onLine;
+        if (online) {
+          const { data, error } = await supabase.from('canecutters').select('cutter_id, name, surname');
+          if (!error && data) {
+            cutters = data;
+            localStorage.setItem('cachedCutters', JSON.stringify(cutters));
+          } else {
+            cutters = JSON.parse(localStorage.getItem('cachedCutters') || '[]');
+          }
+        } else {
+          cutters = JSON.parse(localStorage.getItem('cachedCutters') || '[]');
+        }
+        cachedCutters = cutters;
+      }
+
+      function renderCutterOptions(selectedId) {
+        return cachedCutters.map(cutter => `<option value="${cutter.cutter_id}" ${selectedId === cutter.cutter_id ? 'selected' : ''}>${cutter.name} ${cutter.surname}</option>`).join('');
+      }
+
+      function addCutterRow(selectedId = '', weight = '') {
+        const list = document.getElementById('cuttersList');
+        const row = document.createElement('div');
+        row.className = 'cutterRow';
+        row.innerHTML = `
+          <select class="cutterSelect">${renderCutterOptions(selectedId)}</select>
+          <input type="number" class="cutterWeight" min="0" step="0.01" placeholder="Weight (tons)" value="${weight}">
+          <button type="button" onclick="this.parentNode.remove()">Remove</button>
+        `;
+        list.appendChild(row);
+      }
+
+      window.addCutterRow = addCutterRow;
+
+      async function setupDataCaptureView() {
+        await cacheCutters();
+        document.getElementById('cuttersList').innerHTML = '';
+        addCutterRow();
+        document.getElementById('cutDateTruck').value = new Date().toISOString().slice(0,10);
+      }
+
+      window.submitTruckForm = async function() {
+        const truckNumber = document.getElementById('truckNumber').value.trim();
+        const cutDate = document.getElementById('cutDateTruck').value;
+        const fieldNumbers = document.getElementById('fieldNumbers').value.trim();
+        const cutterRows = Array.from(document.querySelectorAll('#cuttersList .cutterRow'));
+        const cutters = cutterRows.map(row => {
+          return {
+            cutter_id: row.querySelector('.cutterSelect').value,
+            field_weight: parseFloat(row.querySelector('.cutterWeight').value)
+          };
+        }).filter(c => c.cutter_id && c.field_weight > 0);
+        if (!truckNumber || !cutDate || !fieldNumbers || cutters.length === 0) {
+          alert('Please fill in all fields and add at least one cutter with weight.');
+          return;
+        }
+        const submission = {
+          type: 'truckLoad',
+          truckNumber,
+          cutDate,
+          fieldNumbers: fieldNumbers.split(',').map(f => f.trim()),
+          cutters
+        };
+        if (navigator.onLine) {
+          const { data, error } = await supabase.from('truck_loads').insert([
+            {
+              truck_number: truckNumber,
+              date: cutDate,
+              field_numbers: submission.fieldNumbers
+            }
+          ]).select();
+          if (!error && data && data[0]) {
+            const truckLoadId = data[0].id;
+            const cutterInserts = submission.cutters.map(c => ({
+              truck_load_id: truckLoadId,
+              cutter_id: c.cutter_id,
+              field_weight: c.field_weight
+            }));
+            const { error: cutterError } = await supabase.from('truck_cutters').insert(cutterInserts);
+            if (!cutterError) {
+              alert('Truck load recorded successfully!');
+              setupDataCaptureView();
+            } else {
+              alert('Error saving cutter weights: ' + cutterError.message);
+            }
+          } else {
+            alert('Error saving truck load: ' + (error ? error.message : 'Unknown error'));
+            saveTruckToOfflineQueue(submission);
+          }
+        } else {
+          saveTruckToOfflineQueue(submission);
+          alert('Offline: Data saved locally. It will sync automatically when you are back online.');
+        }
+        updateDataCaptureStatus();
+      }
+
+      function saveTruckToOfflineQueue(item) {
+        let queue = JSON.parse(localStorage.getItem('offlineTruckSubmissions') || '[]');
+        queue.push(item);
+        localStorage.setItem('offlineTruckSubmissions', JSON.stringify(queue));
+        updateDataCaptureStatus();
+      }
+
+      async function syncOfflineTruckData() {
+        if (!navigator.onLine) return;
+        let queue = JSON.parse(localStorage.getItem('offlineTruckSubmissions') || '[]');
+        if (queue.length === 0) return;
+        let newQueue = [];
+        for (const item of queue) {
+          if (item.type === 'truckLoad') {
+            const { data, error } = await supabase.from('truck_loads').insert([
+              {
+                truck_number: item.truckNumber,
+                date: item.cutDate,
+                field_numbers: item.fieldNumbers
+              }
+            ]).select();
+            if (!error && data && data[0]) {
+              const truckLoadId = data[0].id;
+              const cutterInserts = item.cutters.map(c => ({
+                truck_load_id: truckLoadId,
+                cutter_id: c.cutter_id,
+                field_weight: c.field_weight
+              }));
+              const { error: cutterError } = await supabase.from('truck_cutters').insert(cutterInserts);
+              if (cutterError) newQueue.push(item);
+            } else {
+              newQueue.push(item);
+            }
+          } else {
+            newQueue.push(item);
+          }
+        }
+        localStorage.setItem('offlineTruckSubmissions', JSON.stringify(newQueue));
+        updateDataCaptureStatus();
+      }
+
+      function updateDataCaptureStatus() {
+        const statusElement = document.getElementById('dataCaptureStatus');
+        const pendingCount = JSON.parse(localStorage.getItem('offlineTruckSubmissions') || '[]').length;
+        if (navigator.onLine) {
+          if (pendingCount > 0) {
+            statusElement.textContent = `Online (${pendingCount} truck loads pending sync)`;
+            statusElement.className = 'pending-sync-status';
+          } else {
+            statusElement.textContent = 'Online ✅';
+            statusElement.className = 'online-status';
+          }
+        } else {
+          statusElement.textContent = `Offline ❌ (${pendingCount} truck loads pending)`;
+          statusElement.className = 'offline-status';
+        }
+      }
+
+      window.addEventListener('online', syncOfflineTruckData);
+      window.addEventListener('online', updateDataCaptureStatus);
+      window.addEventListener('offline', updateDataCaptureStatus);
+
+      window.showAdminSection = async function(section) {
+        const container = document.getElementById('adminSectionContainer');
+        container.innerHTML = '';
+        if (section === 'truckLoads') {
+          container.innerHTML = '<h3>Truck Loads</h3><div id="truckLoadsList">Loading...</div>';
+          const { data, error } = await supabase.from('truck_loads').select('*').order('date', { ascending: false });
+          if (error) {
+            document.getElementById('truckLoadsList').innerHTML = 'Error loading truck loads.';
+            return;
+          }
+          if (!data || data.length === 0) {
+            document.getElementById('truckLoadsList').innerHTML = 'No truck loads found.';
+            return;
+          }
+          let html = '<table><tr><th>Truck</th><th>Date</th><th>Fields</th><th>Mill Weight</th><th>Action</th></tr>';
+          data.forEach(load => {
+            html += `<tr>
+              <td>${load.truck_number}</td>
+              <td>${load.date}</td>
+              <td>${(load.field_numbers || []).join(', ')}</td>
+              <td>${load.mill_weight ? load.mill_weight : '<span style=\'color:red\'>Not entered</span>'}</td>
+              <td><button onclick=\"showTruckLoadDetail('${load.id}')\">View/Edit</button></td>
+            </tr>`;
+          });
+          html += '</table>';
+          document.getElementById('truckLoadsList').innerHTML = html;
+        } else if (section === 'cutters') {
+          // Cutter management UI
+          let html = '<h3>Cutter Management</h3>';
+          html += '<div id="cutterFormContainer"></div>';
+          html += '<button onclick="showAddCutterForm()">Add New Cutter</button>';
+          html += '<div id="cuttersList">Loading...</div>';
+          container.innerHTML = html;
+          loadCuttersList();
+        } else if (section === 'deductions') {
+          let html = '<h3>Deductions</h3>';
+          html += '<div id="deductionFormContainer"></div>';
+          html += '<button onclick="showAddDeductionForm()">Add New Deduction</button>';
+          html += '<div id="deductionsList">Loading...</div>';
+          container.innerHTML = html;
+          loadDeductionsList();
+        } else if (section === 'config') {
+          let html = '<h3>Config Variables</h3>';
+          html += '<div id="configFormContainer"></div>';
+          html += '<button onclick="showAddConfigForm()">Add New Variable</button>';
+          html += '<div id="configList">Loading...</div>';
+          container.innerHTML = html;
+          loadConfigList();
+        } else if (section === 'reports') {
+          let html = '<h3>Reports</h3>';
+          html += '<button onclick="exportReportCSV()">Export as CSV</button>';
+          html += '<div id="reportSummary">Loading...</div>';
+          container.innerHTML = html;
+          loadReportSummary();
+        }
+      }
+
+      window.showTruckLoadDetail = async function(truckLoadId) {
+        const container = document.getElementById('adminSectionContainer');
+        container.innerHTML = '<h3>Truck Load Detail</h3><div>Loading...</div>';
+        const { data: loadData, error: loadError } = await supabase.from('truck_loads').select('*').eq('id', truckLoadId).single();
+        if (loadError || !loadData) {
+          container.innerHTML = 'Error loading truck load.';
+          return;
+        }
+        const { data: cuttersData, error: cuttersError } = await supabase.from('truck_cutters').select('*, canecutters(name, surname)').eq('truck_load_id', truckLoadId);
+        if (cuttersError) {
+          container.innerHTML = 'Error loading cutters.';
+          return;
+        }
+        let html = `<div><b>Truck:</b> ${loadData.truck_number} <b>Date:</b> ${loadData.date} <b>Fields:</b> ${(loadData.field_numbers || []).join(', ')}</div>`;
+        html += `<div><label for="millWeightInput">Mill Weight (tons):</label> <input type="number" id="millWeightInput" value="${loadData.mill_weight || ''}" min="0" step="0.01"> <button onclick="saveMillWeight('${truckLoadId}')">Save</button></div>`;
+        let totalFieldWeight = cuttersData.reduce((sum, c) => sum + (c.field_weight || 0), 0);
+        let millWeight = loadData.mill_weight || 0;
+        html += '<table><tr><th>Cutter</th><th>Field Weight</th><th>Adjusted Weight</th></tr>';
+        cuttersData.forEach(c => {
+          let adjusted = (loadData.mill_weight && totalFieldWeight > 0) ? ((c.field_weight / totalFieldWeight) * loadData.mill_weight).toFixed(2) : '-';
+          html += `<tr><td>${c.canecutters ? c.canecutters.name + ' ' + c.canecutters.surname : c.cutter_id}</td><td>${c.field_weight}</td><td>${adjusted}</td></tr>`;
+        });
+        html += '</table>';
+        html += '<button onclick="showAdminSection(\'truckLoads\')">Back to List</button>';
+        container.innerHTML = html;
+      }
+
+      window.saveMillWeight = async function(truckLoadId) {
+        const val = parseFloat(document.getElementById('millWeightInput').value);
+        if (isNaN(val) || val <= 0) {
+          alert('Please enter a valid mill weight.');
+          return;
+        }
+        const { error } = await supabase.from('truck_loads').update({ mill_weight: val }).eq('id', truckLoadId);
+        if (!error) {
+          alert('Mill weight saved. Adjusted weights updated.');
+          showTruckLoadDetail(truckLoadId);
+        } else {
+          alert('Error saving mill weight: ' + error.message);
+        }
+      }
+
+      window.loadCuttersList = async function() {
+        const listDiv = document.getElementById('cuttersList');
+        const { data, error } = await supabase.from('canecutters').select('*').order('name');
+        if (error) {
+          listDiv.innerHTML = 'Error loading cutters.';
+          return;
+        }
+        if (!data || data.length === 0) {
+          listDiv.innerHTML = 'No cutters found.';
+          return;
+        }
+        let html = '<table><tr><th>ID</th><th>Name</th><th>Surname</th><th>Action</th></tr>';
+        data.forEach(cutter => {
+          html += `<tr><td>${cutter.cutter_id}</td><td>${cutter.name}</td><td>${cutter.surname}</td><td><button onclick=\"showEditCutterForm('${cutter.id}')\">Edit</button> <button onclick=\"deleteCutter('${cutter.id}')\">Delete</button></td></tr>`;
+        });
+        html += '</table>';
+        listDiv.innerHTML = html;
+      }
+
+      window.showAddCutterForm = function() {
+        const formDiv = document.getElementById('cutterFormContainer');
+        formDiv.innerHTML = `<h4>Add New Cutter</h4>
+          <form onsubmit=\"addCutter(event)\">
+            <label for='newCutterId'>Cutter ID:</label><input id='newCutterId' required><br>
+            <label for='newCutterName'>Name:</label><input id='newCutterName' required><br>
+            <label for='newCutterSurname'>Surname:</label><input id='newCutterSurname' required><br>
+            <button type='submit'>Add</button> <button type='button' onclick=\"clearCutterForm()\">Cancel</button>
+          </form>`;
+      }
+
+      window.addCutter = async function(e) {
+        e.preventDefault();
+        const cutter_id = document.getElementById('newCutterId').value.trim();
+        const name = document.getElementById('newCutterName').value.trim();
+        const surname = document.getElementById('newCutterSurname').value.trim();
+        if (!cutter_id || !name || !surname) {
+          alert('All fields required.');
+          return;
+        }
+        const { error } = await supabase.from('canecutters').insert([{ cutter_id, name, surname }]);
+        if (!error) {
+          alert('Cutter added.');
+          clearCutterForm();
+          loadCuttersList();
+          await cacheCutters();
+        } else {
+          alert('Error adding cutter: ' + error.message);
+        }
+      }
+
+      window.showEditCutterForm = async function(id) {
+        const { data, error } = await supabase.from('canecutters').select('*').eq('id', id).single();
+        if (error || !data) {
+          alert('Error loading cutter.');
+          return;
+        }
+        const formDiv = document.getElementById('cutterFormContainer');
+        formDiv.innerHTML = `<h4>Edit Cutter</h4>
+          <form onsubmit=\"editCutter(event, '${id}')\">
+            <label for='editCutterId'>Cutter ID:</label><input id='editCutterId' value='${data.cutter_id}' required><br>
+            <label for='editCutterName'>Name:</label><input id='editCutterName' value='${data.name}' required><br>
+            <label for='editCutterSurname'>Surname:</label><input id='editCutterSurname' value='${data.surname}' required><br>
+            <button type='submit'>Save</button> <button type='button' onclick=\"clearCutterForm()\">Cancel</button>
+          </form>`;
+      }
+
+      window.editCutter = async function(e, id) {
+        e.preventDefault();
+        const cutter_id = document.getElementById('editCutterId').value.trim();
+        const name = document.getElementById('editCutterName').value.trim();
+        const surname = document.getElementById('editCutterSurname').value.trim();
+        if (!cutter_id || !name || !surname) {
+          alert('All fields required.');
+          return;
+        }
+        const { error } = await supabase.from('canecutters').update({ cutter_id, name, surname }).eq('id', id);
+        if (!error) {
+          alert('Cutter updated.');
+          clearCutterForm();
+          loadCuttersList();
+          await cacheCutters();
+        } else {
+          alert('Error updating cutter: ' + error.message);
+        }
+      }
+
+      window.deleteCutter = async function(id) {
+        if (!confirm('Delete this cutter?')) return;
+        const { error } = await supabase.from('canecutters').delete().eq('id', id);
+        if (!error) {
+          alert('Cutter deleted.');
+          loadCuttersList();
+          await cacheCutters();
+        } else {
+          alert('Error deleting cutter: ' + error.message);
+        }
+      }
+
+      window.clearCutterForm = function() {
+        document.getElementById('cutterFormContainer').innerHTML = '';
+      }
+
+      window.loadDeductionsList = async function() {
+        const listDiv = document.getElementById('deductionsList');
+        const { data, error } = await supabase.from('deductions').select('*, canecutters(name, surname)').order('date_of_deduction', { ascending: false });
+        if (error) {
+          listDiv.innerHTML = 'Error loading deductions.';
+          return;
+        }
+        if (!data || data.length === 0) {
+          listDiv.innerHTML = 'No deductions found.';
+          return;
+        }
+        let html = '<table><tr><th>Date</th><th>Cutter</th><th>Type</th><th>Amount</th><th>Reason</th><th>Action</th></tr>';
+        data.forEach(ded => {
+          html += `<tr><td>${ded.date_of_deduction}</td><td>${ded.canecutters ? ded.canecutters.name + ' ' + ded.canecutters.surname : ded.cutter_id}</td><td>${ded.deduction_type}</td><td>${ded.amount}</td><td>${ded.reason || ''}</td><td><button onclick=\"showEditDeductionForm('${ded.id}')\">Edit</button> <button onclick=\"deleteDeduction('${ded.id}')\">Delete</button></td></tr>`;
+        });
+        html += '</table>';
+        listDiv.innerHTML = html;
+      }
+
+      window.showAddDeductionForm = function() {
+        const formDiv = document.getElementById('deductionFormContainer');
+        formDiv.innerHTML = `<h4>Add New Deduction</h4>
+          <form onsubmit=\"addDeduction(event)\">
+            <label for='deductionDate'>Date:</label><input id='deductionDate' type='date' required><br>
+            <label for='deductionCutter'>Cutter:</label><select id='deductionCutter'>${renderCutterOptions('')}</select><br>
+            <label for='deductionType'>Type:</label><input id='deductionType' required><br>
+            <label for='deductionAmount'>Amount:</label><input id='deductionAmount' type='number' step='0.01' required><br>
+            <label for='deductionReason'>Reason:</label><input id='deductionReason'><br>
+            <button type='submit'>Add</button> <button type='button' onclick=\"clearDeductionForm()\">Cancel</button>
+          </form>`;
+      }
+
+      window.addDeduction = async function(e) {
+        e.preventDefault();
+        const date_of_deduction = document.getElementById('deductionDate').value;
+        const cutter_id = document.getElementById('deductionCutter').value;
+        const deduction_type = document.getElementById('deductionType').value.trim();
+        const amount = parseFloat(document.getElementById('deductionAmount').value);
+        const reason = document.getElementById('deductionReason').value.trim();
+        if (!date_of_deduction || !cutter_id || !deduction_type || isNaN(amount)) {
+          alert('All fields except reason are required.');
+          return;
+        }
+        const { error } = await supabase.from('deductions').insert([{ date_of_deduction, cutter_id, deduction_type, amount, reason }]);
+        if (!error) {
+          alert('Deduction added.');
+          clearDeductionForm();
+          loadDeductionsList();
+        } else {
+          alert('Error adding deduction: ' + error.message);
+        }
+      }
+
+      window.showEditDeductionForm = async function(id) {
+        const { data, error } = await supabase.from('deductions').select('*').eq('id', id).single();
+        if (error || !data) {
+          alert('Error loading deduction.');
+          return;
+        }
+        const formDiv = document.getElementById('deductionFormContainer');
+        formDiv.innerHTML = `<h4>Edit Deduction</h4>
+          <form onsubmit=\"editDeduction(event, '${id}')\">
+            <label for='editDeductionDate'>Date:</label><input id='editDeductionDate' type='date' value='${data.date_of_deduction}' required><br>
+            <label for='editDeductionCutter'>Cutter:</label><select id='editDeductionCutter'>${renderCutterOptions(data.cutter_id)}</select><br>
+            <label for='editDeductionType'>Type:</label><input id='editDeductionType' value='${data.deduction_type}' required><br>
+            <label for='editDeductionAmount'>Amount:</label><input id='editDeductionAmount' type='number' step='0.01' value='${data.amount}' required><br>
+            <label for='editDeductionReason'>Reason:</label><input id='editDeductionReason' value='${data.reason || ''}'><br>
+            <button type='submit'>Save</button> <button type='button' onclick=\"clearDeductionForm()\">Cancel</button>
+          </form>`;
+      }
+
+      window.editDeduction = async function(e, id) {
+        e.preventDefault();
+        const date_of_deduction = document.getElementById('editDeductionDate').value;
+        const cutter_id = document.getElementById('editDeductionCutter').value;
+        const deduction_type = document.getElementById('editDeductionType').value.trim();
+        const amount = parseFloat(document.getElementById('editDeductionAmount').value);
+        const reason = document.getElementById('editDeductionReason').value.trim();
+        if (!date_of_deduction || !cutter_id || !deduction_type || isNaN(amount)) {
+          alert('All fields except reason are required.');
+          return;
+        }
+        const { error } = await supabase.from('deductions').update({ date_of_deduction, cutter_id, deduction_type, amount, reason }).eq('id', id);
+        if (!error) {
+          alert('Deduction updated.');
+          clearDeductionForm();
+          loadDeductionsList();
+        } else {
+          alert('Error updating deduction: ' + error.message);
+        }
+      }
+
+      window.deleteDeduction = async function(id) {
+        if (!confirm('Delete this deduction?')) return;
+        const { error } = await supabase.from('deductions').delete().eq('id', id);
+        if (!error) {
+          alert('Deduction deleted.');
+          loadDeductionsList();
+        } else {
+          alert('Error deleting deduction: ' + error.message);
+        }
+      }
+
+      window.clearDeductionForm = function() {
+        document.getElementById('deductionFormContainer').innerHTML = '';
+      }
+
+      window.loadConfigList = async function() {
+        const listDiv = document.getElementById('configList');
+        const { data, error } = await supabase.from('config').select('*').order('key');
+        if (error) {
+          listDiv.innerHTML = 'Error loading config variables.';
+          return;
+        }
+        if (!data || data.length === 0) {
+          listDiv.innerHTML = 'No config variables found.';
+          return;
+        }
+        let html = '<table><tr><th>Key</th><th>Value</th><th>Action</th></tr>';
+        data.forEach(cfg => {
+          html += `<tr><td>${cfg.key}</td><td>${cfg.value}</td><td><button onclick=\"showEditConfigForm('${cfg.id}')\">Edit</button> <button onclick=\"deleteConfig('${cfg.id}')\">Delete</button></td></tr>`;
+        });
+        html += '</table>';
+        listDiv.innerHTML = html;
+      }
+
+      window.showAddConfigForm = function() {
+        const formDiv = document.getElementById('configFormContainer');
+        formDiv.innerHTML = `<h4>Add New Config Variable</h4>
+          <form onsubmit=\"addConfig(event)\">
+            <label for='newConfigKey'>Key:</label><input id='newConfigKey' required><br>
+            <label for='newConfigValue'>Value:</label><input id='newConfigValue' required><br>
+            <button type='submit'>Add</button> <button type='button' onclick=\"clearConfigForm()\">Cancel</button>
+          </form>`;
+      }
+
+      window.addConfig = async function(e) {
+        e.preventDefault();
+        const key = document.getElementById('newConfigKey').value.trim();
+        const value = document.getElementById('newConfigValue').value.trim();
+        if (!key || !value) {
+          alert('All fields required.');
+          return;
+        }
+        const { error } = await supabase.from('config').insert([{ key, value }]);
+        if (!error) {
+          alert('Config variable added.');
+          clearConfigForm();
+          loadConfigList();
+        } else {
+          alert('Error adding config variable: ' + error.message);
+        }
+      }
+
+      window.showEditConfigForm = async function(id) {
+        const { data, error } = await supabase.from('config').select('*').eq('id', id).single();
+        if (error || !data) {
+          alert('Error loading config variable.');
+          return;
+        }
+        const formDiv = document.getElementById('configFormContainer');
+        formDiv.innerHTML = `<h4>Edit Config Variable</h4>
+          <form onsubmit=\"editConfig(event, '${id}')\">
+            <label for='editConfigKey'>Key:</label><input id='editConfigKey' value='${data.key}' required><br>
+            <label for='editConfigValue'>Value:</label><input id='editConfigValue' value='${data.value}' required><br>
+            <button type='submit'>Save</button> <button type='button' onclick=\"clearConfigForm()\">Cancel</button>
+          </form>`;
+      }
+
+      window.editConfig = async function(e, id) {
+        e.preventDefault();
+        const key = document.getElementById('editConfigKey').value.trim();
+        const value = document.getElementById('editConfigValue').value.trim();
+        if (!key || !value) {
+          alert('All fields required.');
+          return;
+        }
+        const { error } = await supabase.from('config').update({ key, value }).eq('id', id);
+        if (!error) {
+          alert('Config variable updated.');
+          clearConfigForm();
+          loadConfigList();
+        } else {
+          alert('Error updating config variable: ' + error.message);
+        }
+      }
+
+      window.deleteConfig = async function(id) {
+        if (!confirm('Delete this config variable?')) return;
+        const { error } = await supabase.from('config').delete().eq('id', id);
+        if (!error) {
+          alert('Config variable deleted.');
+          loadConfigList();
+        } else {
+          alert('Error deleting config variable: ' + error.message);
+        }
+      }
+
+      window.clearConfigForm = function() {
+        document.getElementById('configFormContainer').innerHTML = '';
+      }
+
+      window.loadReportSummary = async function() {
+        const reportDiv = document.getElementById('reportSummary');
+        // Aggregate total field and adjusted weights per cutter
+        const { data: cutters, error: cuttersError } = await supabase.from('canecutters').select('*');
+        if (cuttersError) {
+          reportDiv.innerHTML = 'Error loading cutters.';
+          return;
+        }
+        const { data: truckCutters, error: tcError } = await supabase.from('truck_cutters').select('*, truck_loads(mill_weight)').order('cutter_id');
+        if (tcError) {
+          reportDiv.innerHTML = 'Error loading truck cutter data.';
+          return;
+        }
+        // Map cutter_id to name
+        const cutterMap = {};
+        cutters.forEach(c => { cutterMap[c.cutter_id] = c.name + ' ' + c.surname; });
+        // Aggregate
+        const summary = {};
+        truckCutters.forEach(tc => {
+          if (!summary[tc.cutter_id]) summary[tc.cutter_id] = { field: 0, adjusted: 0 };
+          summary[tc.cutter_id].field += tc.field_weight || 0;
+          if (tc.truck_loads && tc.truck_loads.mill_weight && tc.field_weight) {
+            // Need total field weight for this truck
+            // We'll sum all field_weights for this truck_load_id
+            const totalFieldWeight = truckCutters.filter(x => x.truck_load_id === tc.truck_load_id).reduce((sum, x) => sum + (x.field_weight || 0), 0);
+            if (totalFieldWeight > 0) {
+              summary[tc.cutter_id].adjusted += (tc.field_weight / totalFieldWeight) * tc.truck_loads.mill_weight;
+            }
+          }
+        });
+        let html = '<table><tr><th>Cutter</th><th>Total Field Weight</th><th>Total Adjusted Weight</th></tr>';
+        Object.keys(summary).forEach(cid => {
+          html += `<tr><td>${cutterMap[cid] || cid}</td><td>${summary[cid].field.toFixed(2)}</td><td>${summary[cid].adjusted.toFixed(2)}</td></tr>`;
+        });
+        html += '</table>';
+        reportDiv.innerHTML = html;
+      }
+
+      window.exportReportCSV = async function() {
+        // Reuse the summary logic
+        const { data: cutters } = await supabase.from('canecutters').select('*');
+        const { data: truckCutters } = await supabase.from('truck_cutters').select('*, truck_loads(mill_weight)').order('cutter_id');
+        const cutterMap = {};
+        cutters.forEach(c => { cutterMap[c.cutter_id] = c.name + ' ' + c.surname; });
+        const summary = {};
+        truckCutters.forEach(tc => {
+          if (!summary[tc.cutter_id]) summary[tc.cutter_id] = { field: 0, adjusted: 0 };
+          summary[tc.cutter_id].field += tc.field_weight || 0;
+          if (tc.truck_loads && tc.truck_loads.mill_weight && tc.field_weight) {
+            const totalFieldWeight = truckCutters.filter(x => x.truck_load_id === tc.truck_load_id).reduce((sum, x) => sum + (x.field_weight || 0), 0);
+            if (totalFieldWeight > 0) {
+              summary[tc.cutter_id].adjusted += (tc.field_weight / totalFieldWeight) * tc.truck_loads.mill_weight;
+            }
+          }
+        });
+        let csv = 'Cutter,Total Field Weight,Total Adjusted Weight\n';
+        Object.keys(summary).forEach(cid => {
+          csv += `"${cutterMap[cid] || cid}",${summary[cid].field.toFixed(2)},${summary[cid].adjusted.toFixed(2)}\n`;
+        });
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'cane_payroll_report.csv';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+
+      function updateBackToHomeBtn() {
+        const btn = document.getElementById('backToHomeBtn');
+        const landing = document.getElementById('landingView');
+        if (landing.style.display === '' || landing.style.display === 'block') {
+          btn.style.display = 'none';
+        } else {
+          btn.style.display = '';
+        }
+      }
+
+      // Place navigation and back button logic here so it is always available
+      window.showLanding = function() {
+        document.getElementById('landingView').style.display = '';
+        document.getElementById('dataCaptureView').style.display = 'none';
+        document.getElementById('adminView').style.display = 'none';
+        updateBackToHomeBtn();
+      }
+      window.showDataCapture = async function() {
+        document.getElementById('landingView').style.display = 'none';
+        document.getElementById('dataCaptureView').style.display = '';
+        document.getElementById('adminView').style.display = 'none';
+        updateBackToHomeBtn();
+        await setupDataCaptureView();
+        updateBackToHomeBtn();
+      }
+      window.showAdmin = function() {
+        document.getElementById('landingView').style.display = 'none';
+        document.getElementById('dataCaptureView').style.display = 'none';
+        document.getElementById('adminView').style.display = '';
+        updateBackToHomeBtn();
+      }
+      // Show landing view by default
+      window.showLanding();
     </script>
     <script>
       // Register service worker for offline/PWA support
