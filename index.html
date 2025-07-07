@@ -4,6 +4,7 @@
     <base target="_top">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cane Cut Record</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
       body {
         font-family: sans-serif;
@@ -18,6 +19,10 @@
       h2 {
         color: #333;
         margin-bottom: 20px;
+        text-align: center;
+      }
+      h3 {
+        text-align: center;
       }
       label {
         display: block;
@@ -36,7 +41,7 @@
         box-sizing: border-box;
       }
       button {
-        width: calc(100% - 20px);
+        width: 100%;
         max-width: 300px;
         font-size: 1.6em;
         padding: 15px;
@@ -77,6 +82,33 @@
         background-color: #fff3cd;
         color: #856404;
       }
+      .centered-form {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        max-width: 2000px;
+        margin: 0 auto;
+        background: #fff;
+        padding: 32px 64px 32px 64px;
+        border-radius: 12px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+      }
+      .admin-dashboard-buttons {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 24px;
+      }
+      .landing-buttons {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 24px;
+      }
     </style>
     <!-- Supabase client CDN -->
     <!-- <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm" type="module"></script> -->
@@ -86,44 +118,63 @@
     <div id="onlineStatus" style="position:fixed;top:10px;right:10px;z-index:1000;"></div>
     <button id="backToHomeBtn" style="position:fixed;top:10px;left:10px;z-index:1000;display:none;background-color:#e53935;color:white;border:none;border-radius:8px;padding:12px 22px;font-size:1.1em;box-shadow:0 2px 6px rgba(0,0,0,0.12);cursor:pointer;transition:background-color 0.2s;" onclick="showLanding()">Return to home</button>
     <div id="landingView">
-      <h2>Cane Payroll App</h2>
-      <button onclick="showDataCapture()">Data Capture</button>
-      <button onclick="showAdmin()">Admin</button>
+      <div class="centered-form">
+        <h2>Cane Payroll App</h2>
+        <div class="landing-buttons">
+          <button onclick="showDataCapture()">Data Capture</button>
+          <button onclick="showAdmin()">Admin</button>
+        </div>
+      </div>
     </div>
 
     <div id="dataCaptureView" style="display:none;">
-      <h2>Truck Data Capture</h2>
-      <form id="truckForm" onsubmit="return false;">
-        <label for="truckNumber">Truck Number:</label>
-        <input type="text" id="truckNumber" required>
+      <div class="centered-form">
+        <h2>Truck Data Capture</h2>
+        <form id="truckForm" onsubmit="return false;">
+          <label for="truckNumber">Truck Number:</label>
+          <div style="display:flex;justify-content:center;">
+            <input type="text" id="truckNumber" required>
+          </div>
 
-        <label for="cutDate">Date of Cut:</label>
-        <input type="date" id="cutDateTruck" required>
+          <label for="cutDate">Date of Cut:</label>
+          <div style="display:flex;justify-content:center;">
+            <input type="date" id="cutDateTruck" required>
+          </div>
 
-        <label for="fieldNumbers">Field Number(s):</label>
-        <input type="text" id="fieldNumbers" placeholder="e.g., 1,2,3" required>
+          <label for="fieldNumbers">Field Number(s):</label>
+          <div style="display:flex;justify-content:center;">
+            <input type="text" id="fieldNumbers" placeholder="e.g., 1,2,3" required>
+          </div>
 
-        <div id="cuttersSection">
-          <h3>Cutter Weights</h3>
-          <div id="cuttersList"></div>
-          <button type="button" onclick="addCutterRow()">Add Cutter</button>
-        </div>
+          <div id="cuttersSection">
+            <h3>Cutter Weights</h3>
+            <div id="cuttersList"></div>
+            <div id="totalFieldWeightBox" style="margin:16px 0;padding:12px 0;text-align:center;font-weight:bold;border:1px solid #bbb;border-radius:8px;background:#f7f7f7;">Total field weight: <span id="totalFieldWeight">0.00</span> tons</div>
+            <div style="display:flex;justify-content:center;margin:12px 0;">
+              <button type="button" onclick="addCutterRow()">Add Cutter</button>
+            </div>
+          </div>
 
-        <button type="submit" onclick="submitTruckForm()">Submit Truck Load</button>
-      </form>
-      <div id="dataCaptureStatus"></div>
+          <div style="display:flex;justify-content:center;margin:12px 0;">
+            <button type="submit" onclick="submitTruckForm()">Submit Truck Load</button>
+          </div>
+        </form>
+        <div id="dataCaptureStatus"></div>
+      </div>
     </div>
 
     <div id="adminView" style="display:none;">
-      <h2>Admin Dashboard</h2>
-      <div>
-        <button onclick="showAdminSection('truckLoads')">Truck Loads</button>
-        <button onclick="showAdminSection('cutters')">Cutters</button>
-        <button onclick="showAdminSection('deductions')">Deductions</button>
-        <button onclick="showAdminSection('config')">Config</button>
-        <button onclick="showAdminSection('reports')">Reports</button>
+      <div class="centered-form">
+        <h2>Admin Dashboard</h2>
+        <div class="admin-dashboard-buttons">
+          <button onclick="showAdminSection('truckLoads')">Truck Loads</button>
+          <button onclick="showAdminSection('cutters')">Cutters</button>
+          <button onclick="showAdminSection('deductions')">Deductions</button>
+          <button onclick="showAdminSection('config')">Config</button>
+          <button onclick="showAdminSection('reports')">Reports</button>
+        </div>
+        <div id="adminSectionContainer"></div>
       </div>
-      <div id="adminSectionContainer"></div>
     </div>
 
     <script type="module">
@@ -154,11 +205,11 @@
             statusElement.textContent = `Online (${pendingCount} truck loads pending sync)`;
             statusElement.className = 'pending-sync-status';
           } else {
-            statusElement.textContent = 'Online ✅';
+            statusElement.textContent = 'Online';
             statusElement.className = 'online-status';
           }
         } else {
-          statusElement.textContent = `Offline ❌ (${pendingCount} truck loads pending)`;
+          statusElement.textContent = `Offline (${pendingCount} truck loads pending)`;
           statusElement.className = 'offline-status';
         }
       }
@@ -166,6 +217,7 @@
       // Fetches cutter names and IDs from Supabase and populates the dropdown
       async function loadCutterData() {
         const select = document.getElementById('cutterId');
+        if (!select) return;
         select.innerHTML = '<option value="">Loading Cutters...</option>';
         const { data, error } = await supabase
           .from('canecutters')
@@ -319,9 +371,15 @@
         const row = document.createElement('div');
         row.className = 'cutterRow';
         row.innerHTML = `
-          <select class="cutterSelect">${renderCutterOptions(selectedId)}</select>
-          <input type="number" class="cutterWeight" min="0" step="0.01" placeholder="Weight (tons)" value="${weight}">
-          <button type="button" onclick="this.parentNode.remove()">Remove</button>
+          <div style="display:flex;justify-content:center;">
+            <select class="cutterSelect">${renderCutterOptions(selectedId)}</select>
+          </div>
+          <div style="display:flex;justify-content:center;">
+            <input type="number" class="cutterWeight" min="0" step="0.01" placeholder="Weight (tons)" value="${weight}">
+          </div>
+          <div style="display:flex;justify-content:center;">
+            <button type="button" onclick="this.parentNode.remove()">Remove</button>
+          </div>
         `;
         list.appendChild(row);
       }
@@ -346,6 +404,8 @@
             field_weight: parseFloat(row.querySelector('.cutterWeight').value)
           };
         }).filter(c => c.cutter_id && c.field_weight > 0);
+        // Calculate total field weight
+        const totalFieldWeight = cutters.reduce((sum, c) => sum + c.field_weight, 0);
         if (!truckNumber || !cutDate || !fieldNumbers || cutters.length === 0) {
           alert('Please fill in all fields and add at least one cutter with weight.');
           return;
@@ -362,7 +422,8 @@
             {
               truck_number: truckNumber,
               date: cutDate,
-              field_numbers: submission.fieldNumbers
+              field_numbers: submission.fieldNumbers,
+              total_field_weight: totalFieldWeight
             }
           ]).select();
           if (!error && data && data[0]) {
@@ -439,11 +500,11 @@
             statusElement.textContent = `Online (${pendingCount} truck loads pending sync)`;
             statusElement.className = 'pending-sync-status';
           } else {
-            statusElement.textContent = 'Online ✅';
+            statusElement.textContent = 'Online';
             statusElement.className = 'online-status';
           }
         } else {
-          statusElement.textContent = `Offline ❌ (${pendingCount} truck loads pending)`;
+          statusElement.textContent = `Offline (${pendingCount} truck loads pending)`;
           statusElement.className = 'offline-status';
         }
       }
@@ -452,8 +513,25 @@
       window.addEventListener('online', updateDataCaptureStatus);
       window.addEventListener('offline', updateDataCaptureStatus);
 
+      let showAdminSectionCounter = 0;
+      let showAdminSectionCuttersRunning = false;
+      let currentAdminSection = null;
       window.showAdminSection = async function(section) {
+        if (currentAdminSection === section) {
+          console.log(`[Debug] showAdminSection('${section}') called, but already on this section. Skipping re-render.`);
+          return;
+        }
+        currentAdminSection = section;
+        if (section === 'cutters') {
+          if (showAdminSectionCuttersRunning) {
+            console.warn('[Debug] showAdminSection("cutters") called while previous call is still running! Call stack:', new Error().stack);
+            return;
+          }
+          showAdminSectionCuttersRunning = true;
+        }
+        showAdminSectionCounter++;
         const container = document.getElementById('adminSectionContainer');
+        const callTime = new Date().toLocaleTimeString();
         container.innerHTML = '';
         if (section === 'truckLoads') {
           container.innerHTML = '<h3>Truck Loads</h3><div id="truckLoadsList">Loading...</div>';
@@ -479,13 +557,14 @@
           html += '</table>';
           document.getElementById('truckLoadsList').innerHTML = html;
         } else if (section === 'cutters') {
-          // Cutter management UI
-          let html = '<h3>Cutter Management</h3>';
-          html += '<div id="cutterFormContainer"></div>';
-          html += '<button onclick="showAddCutterForm()">Add New Cutter</button>';
-          html += '<div id="cuttersList">Loading...</div>';
+          let html = `<h3>Cutter Management</h3>`;
+          html += `<div id="cutterFormContainer"></div>`;
+          html += `<button onclick="showAddCutterForm()">Add New Cutter</button>`;
+          html += `<div id="adminCuttersList">Loading...</div>`;
           container.innerHTML = html;
-          loadCuttersList();
+          await loadCuttersList();
+          showAdminSectionCuttersRunning = false;
+          return;
         } else if (section === 'deductions') {
           let html = '<h3>Deductions</h3>';
           html += '<div id="deductionFormContainer"></div>';
@@ -552,8 +631,15 @@
       }
 
       window.loadCuttersList = async function() {
-        const listDiv = document.getElementById('cuttersList');
+        let listDiv = document.getElementById('adminCuttersList');
+        listDiv.innerHTML = `<div style='color:gray;'>[Debug] Loading cutters list... (${new Date().toLocaleTimeString()})</div>`;
         const { data, error } = await supabase.from('canecutters').select('*').order('name');
+        // Re-select the element after async call
+        listDiv = document.getElementById('adminCuttersList');
+        if (!listDiv) {
+          console.error('[Debug] adminCuttersList element not found after async!');
+          return;
+        }
         if (error) {
           listDiv.innerHTML = 'Error loading cutters.';
           return;
@@ -562,12 +648,20 @@
           listDiv.innerHTML = 'No cutters found.';
           return;
         }
-        let html = '<table><tr><th>ID</th><th>Name</th><th>Surname</th><th>Action</th></tr>';
-        data.forEach(cutter => {
-          html += `<tr><td>${cutter.cutter_id}</td><td>${cutter.name}</td><td>${cutter.surname}</td><td><button onclick=\"showEditCutterForm('${cutter.id}')\">Edit</button> <button onclick=\"deleteCutter('${cutter.id}')\">Delete</button></td></tr>`;
+        // Render real cutters table
+        let html = '<table border="1" style="border-collapse:collapse;width:100%;"><tr>';
+        const keys = Object.keys(data[0] || {});
+        keys.forEach(key => { html += `<th>${key}</th>`; });
+        html += '<th>Action</th></tr>';
+        data.forEach(row => {
+          html += '<tr>';
+          keys.forEach(key => { html += `<td>${row[key]}</td>`; });
+          html += `<td><div style='display:flex;justify-content:center;'><button onclick="showEditCutterForm('${row.id}')">Edit</button> <button onclick="deleteCutter('${row.id}')">Delete</button></div></td>`;
+          html += '</tr>';
         });
         html += '</table>';
         listDiv.innerHTML = html;
+        console.log('[Debug] Set adminCuttersList to real table.');
       }
 
       window.showAddCutterForm = function() {
@@ -590,6 +684,7 @@
           alert('All fields required.');
           return;
         }
+        // Insert with all fields, let Supabase auto-generate uuid if needed
         const { error } = await supabase.from('canecutters').insert([{ cutter_id, name, surname }]);
         if (!error) {
           alert('Cutter added.');
@@ -859,15 +954,7 @@
         const reportDiv = document.getElementById('reportSummary');
         // Aggregate total field and adjusted weights per cutter
         const { data: cutters, error: cuttersError } = await supabase.from('canecutters').select('*');
-        if (cuttersError) {
-          reportDiv.innerHTML = 'Error loading cutters.';
-          return;
-        }
         const { data: truckCutters, error: tcError } = await supabase.from('truck_cutters').select('*, truck_loads(mill_weight)').order('cutter_id');
-        if (tcError) {
-          reportDiv.innerHTML = 'Error loading truck cutter data.';
-          return;
-        }
         // Map cutter_id to name
         const cutterMap = {};
         cutters.forEach(c => { cutterMap[c.cutter_id] = c.name + ' ' + c.surname; });
@@ -958,6 +1045,50 @@
       }
       // Show landing view by default
       window.showLanding();
+
+      // Attach all UI functions to window for global access
+      window.showAdminSection = showAdminSection;
+      window.loadCuttersList = loadCuttersList;
+      window.showAddCutterForm = showAddCutterForm;
+      window.addCutter = addCutter;
+      window.showEditCutterForm = showEditCutterForm;
+      window.editCutter = editCutter;
+      window.deleteCutter = deleteCutter;
+      window.clearCutterForm = clearCutterForm;
+
+      // Add JS to update total field weight live
+      function updateTotalFieldWeight() {
+        const rows = document.querySelectorAll('#cuttersList .cutterRow');
+        let total = 0;
+        rows.forEach(row => {
+          const input = row.querySelector('.cutterWeight');
+          if (input && input.value) {
+            const val = parseFloat(input.value);
+            if (!isNaN(val)) total += val;
+          }
+        });
+        document.getElementById('totalFieldWeight').textContent = total.toFixed(2);
+      }
+      // Attach event listeners to update total when weights change
+      function attachWeightListeners() {
+        const list = document.getElementById('cuttersList');
+        list.addEventListener('input', function(e) {
+          if (e.target.classList.contains('cutterWeight')) updateTotalFieldWeight();
+        });
+      }
+      document.addEventListener('DOMContentLoaded', attachWeightListeners);
+      // Also call updateTotalFieldWeight after adding/removing rows
+      const origAddCutterRow = window.addCutterRow;
+      window.addCutterRow = function(...args) {
+        origAddCutterRow.apply(this, args);
+        updateTotalFieldWeight();
+      };
+      // Patch remove button to update total
+      document.addEventListener('click', function(e) {
+        if (e.target && e.target.tagName === 'BUTTON' && e.target.textContent === 'Remove') {
+          setTimeout(updateTotalFieldWeight, 0);
+        }
+      });
     </script>
     <script>
       // Register service worker for offline/PWA support

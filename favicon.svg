@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Sugarcane stalk -->
+  <rect x="48" y="12" width="8" height="40" rx="3" fill="#7ec850"/>
+  <rect x="52" y="16" width="2.5" height="32" rx="1.2" fill="#5a9c2e"/>
+  <!-- Cane leaves -->
+  <path d="M52 12 Q62 2 56 32" stroke="#7ec850" stroke-width="3" fill="none"/>
+  <path d="M56 20 Q66 10 56 44" stroke="#7ec850" stroke-width="3" fill="none"/>
+  <!-- Cane knife handle -->
+  <rect x="10" y="44" width="16" height="6" rx="3" fill="#a67c52" transform="rotate(-25 18 47)"/>
+  <!-- Cane knife blade -->
+  <rect x="20" y="36" width="28" height="8" rx="4" fill="#bbb" transform="rotate(-25 34 40)"/>
+  <path d="M48 32 Q60 36 44 44" stroke="#888" stroke-width="4" fill="none"/>
+  <!-- Knife edge highlight -->
+  <path d="M22 38 Q40 32 46 42" stroke="#fff" stroke-width="2" fill="none"/>
+</svg> 
