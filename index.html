@@ -1120,36 +1120,6 @@
         document.getElementById('configFormContainer').innerHTML = '';
       }
 
-      window.loadReportSummary = async function() {
-        const reportDiv = document.getElementById('reportSummary');
-        // Aggregate total field and adjusted weights per cutter
-        const { data: cutters, error: cuttersError } = await supabase.from('canecutters').select('*');
-        const { data: truckCutters, error: tcError } = await supabase.from('truck_cutters').select('*, truck_loads(mill_weight)').order('cutter_id');
-        // Map cutter_id to name
-        const cutterMap = {};
-        cutters.forEach(c => { cutterMap[c.cutter_id] = c.name + ' ' + c.surname; });
-        // Aggregate
-        const summary = {};
-        truckCutters.forEach(tc => {
-          if (!summary[tc.cutter_id]) summary[tc.cutter_id] = { field: 0, adjusted: 0 };
-          summary[tc.cutter_id].field += tc.field_weight || 0;
-          if (tc.truck_loads && tc.truck_loads.mill_weight && tc.field_weight) {
-            // Need total field weight for this truck
-            // We'll sum all field_weights for this truck_load_id
-            const totalFieldWeight = truckCutters.filter(x => x.truck_load_id === tc.truck_load_id).reduce((sum, x) => sum + (x.field_weight || 0), 0);
-            if (totalFieldWeight > 0) {
-              summary[tc.cutter_id].adjusted += (tc.field_weight / totalFieldWeight) * tc.truck_loads.mill_weight;
-            }
-          }
-        });
-        let html = '<table><tr><th>Cutter</th><th>Total Field Weight</th><th>Total Adjusted Weight</th></tr>';
-        Object.keys(summary).forEach(cid => {
-          html += `<tr><td>${cutterMap[cid] || cid}</td><td>${summary[cid].field.toFixed(2)}</td><td>${summary[cid].adjusted.toFixed(2)}</td></tr>`;
-        });
-        html += '</table>';
-        reportDiv.innerHTML = html;
-      }
-
       window.exportReportCSV = async function() {
         // Reuse the summary logic
         const { data: cutters } = await supabase.from('canecutters').select('*');
