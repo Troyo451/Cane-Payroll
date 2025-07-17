@@ -1475,12 +1475,29 @@
         const from = document.getElementById('individualCutterFrom').value;
         const to = document.getElementById('individualCutterTo').value;
         if (!cutter) { alert('Please select a cutter.'); return; }
-        let { data } = await supabase.from('truck_cutters').select('*, truck_loads(date, field_numbers, mill_weight)').eq('cutter_id', cutter).order('id');
+        // Select truck_number as well
+        let { data } = await supabase.from('truck_cutters').select('*, truck_loads(date, truck_number, field_numbers, mill_weight)').eq('cutter_id', cutter).order('id');
         if (from) data = data.filter(row => row.truck_loads && row.truck_loads.date >= from);
         if (to) data = data.filter(row => row.truck_loads && row.truck_loads.date <= to);
+        // For adjusted weight calculation, fetch all truck_cutters for the relevant truck_load_ids
+        const truckLoadIds = Array.from(new Set(data.map(row => row.truck_load_id)));
+        let allTruckCutters = [];
+        if (truckLoadIds.length > 0) {
+          let { data: allTC } = await supabase.from('truck_cutters').select('truck_load_id, field_weight');
+          if (allTC) allTruckCutters = allTC;
+        }
         let csv = 'Date,Truck Number,Field Numbers,Field Weight,Adjusted Weight,Mill Weight\n';
         data.forEach(row => {
-          csv += `${row.truck_loads ? row.truck_loads.date : ''},${row.truck_loads ? row.truck_loads.truck_number : ''},"${row.truck_loads ? (row.truck_loads.field_numbers||[]).join(', ') : ''}",${row.field_weight||''},${row.adj_weight||''},${row.truck_loads ? row.truck_loads.mill_weight||'' : ''}\n`;
+          let adjusted = '';
+          if (row.truck_loads && row.truck_loads.mill_weight && row.field_weight) {
+            // Find all truck_cutters for this truck_load_id
+            const cuttersForLoad = allTruckCutters.filter(x => x.truck_load_id === row.truck_load_id);
+            const totalFieldWeight = cuttersForLoad.reduce((sum, x) => sum + (x.field_weight || 0), 0);
+            if (totalFieldWeight > 0) {
+              adjusted = ((row.field_weight / totalFieldWeight) * row.truck_loads.mill_weight).toFixed(2);
+            }
+          }
+          csv += `${row.truck_loads ? row.truck_loads.date : ''},${row.truck_loads ? row.truck_loads.truck_number : ''},"${row.truck_loads ? (row.truck_loads.field_numbers||[]).join(', ') : ''}",${row.field_weight||''},${adjusted},${row.truck_loads ? row.truck_loads.mill_weight||'' : ''}\n`;
         });
         downloadCSV(`individual_cutter_${cutter}_${from||'all'}_${to||'all'}.csv`, csv);
       };
