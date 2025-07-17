@@ -128,6 +128,33 @@
         padding-bottom: 12px;
         border-bottom: 1px solid #eee;
         max-width: 350px;
+        display: flex;
+        flex-direction: column;
+      }
+      .csv-export-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 8px;
+      }
+      .csv-export-header b {
+        font-size: 1.1em;
+      }
+      .csv-export-btn {
+        font-size: 1.1em;
+        padding: 6px 18px;
+        margin: 0;
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+      }
+      .csv-export-btn:active {
+        background-color: #45a049;
+        box-shadow: none;
       }
       @media (max-width: 600px) {
         .filter-row, .csv-export-group { max-width: 100%; }
@@ -609,41 +636,41 @@
           // Insert improved CSV export UI here
           html += `<div id="csvExportSection" style="margin-top:24px;">
 `
-            + `<div class="csv-export-group"><b>Payroll Report</b><br>
+            + `<div class="csv-export-group">
+                <div class="csv-export-header"><b>Payroll Report</b><button class="csv-export-btn" onclick="exportPayrollCSV()">Export Payroll CSV</button></div>
                 <div class="filter-row"><span class="filter-label">From:</span><input type="date" id="payrollFrom"></div>
                 <div class="filter-row"><span class="filter-label">To:</span><input type="date" id="payrollTo"></div>
-                <button onclick="exportPayrollCSV()">Export Payroll CSV</button>
               </div>
 `
-            + `<div class="csv-export-group"><b>Truck Loads</b><br>
+            + `<div class="csv-export-group">
+                <div class="csv-export-header"><b>Truck Loads</b><button class="csv-export-btn" onclick="exportTruckLoadsCSV()">Export Truck Loads CSV</button></div>
                 <div class="filter-row"><span class="filter-label">From:</span><input type="date" id="truckLoadsFrom"></div>
                 <div class="filter-row"><span class="filter-label">To:</span><input type="date" id="truckLoadsTo"></div>
-                <button onclick="exportTruckLoadsCSV()">Export Truck Loads CSV</button>
               </div>
 `
-            + `<div class="csv-export-group"><b>Deductions</b><br>
+            + `<div class="csv-export-group">
+                <div class="csv-export-header"><b>Deductions</b><button class="csv-export-btn" onclick="exportDeductionsCSV()">Export Deductions CSV</button></div>
                 <div class="filter-row"><span class="filter-label">From:</span><input type="date" id="deductionsFrom"></div>
                 <div class="filter-row"><span class="filter-label">To:</span><input type="date" id="deductionsTo"></div>
                 <div class="filter-row"><span class="filter-label">Cutter:</span><select id="deductionsCutter"></select></div>
-                <button onclick="exportDeductionsCSV()">Export Deductions CSV</button>
               </div>
 `
-            + `<div class="csv-export-group"><b>Config/Settings</b><br>
-                <button onclick="exportConfigCSV()">Export Config CSV</button>
+            + `<div class="csv-export-group">
+                <div class="csv-export-header"><b>Config/Settings</b><button class="csv-export-btn" onclick="exportConfigCSV()">Export Config CSV</button></div>
               </div>
 `
-            + `<div class="csv-export-group"><b>Individual Cutter</b><br>
+            + `<div class="csv-export-group">
+                <div class="csv-export-header"><b>Individual Cutter</b><button class="csv-export-btn" onclick="exportIndividualCutterCSV()">Export Individual Cutter CSV</button></div>
                 <div class="filter-row"><span class="filter-label">Cutter:</span><select id="individualCutter"></select></div>
                 <div class="filter-row"><span class="filter-label">From:</span><input type="date" id="individualCutterFrom"></div>
                 <div class="filter-row"><span class="filter-label">To:</span><input type="date" id="individualCutterTo"></div>
-                <button onclick="exportIndividualCutterCSV()">Export Individual Cutter CSV</button>
               </div>
 `
-            + `<div class="csv-export-group"><b>Field Productivity</b><br>
+            + `<div class="csv-export-group">
+                <div class="csv-export-header"><b>Field Productivity</b><button class="csv-export-btn" onclick="exportFieldProductivityCSV()">Export Field Productivity CSV</button></div>
                 <div class="filter-row"><span class="filter-label">Field:</span><select id="fieldProductivityField"></select></div>
                 <div class="filter-row"><span class="filter-label">From:</span><input type="date" id="fieldProductivityFrom"></div>
                 <div class="filter-row"><span class="filter-label">To:</span><input type="date" id="fieldProductivityTo"></div>
-                <button onclick="exportFieldProductivityCSV()">Export Field Productivity CSV</button>
               </div>
 `
             + `</div>`;
