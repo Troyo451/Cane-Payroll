@@ -793,10 +793,8 @@
         const { error } = await supabase.from('truck_loads').update({ mill_weight: val }).eq('id', truckLoadId);
         if (!error) {
           alert('Mill weight saved. Adjusted weights updated.');
+          document.getElementById('adminSectionContainer').innerHTML = '';
           showAdminSection('truckLoads');
-          setTimeout(() => {
-            document.getElementById('adminSectionContainer').scrollIntoView({ behavior: 'smooth' });
-          }, 50);
         } else {
           alert('Error saving mill weight: ' + error.message);
         }
@@ -1585,10 +1583,8 @@
       }
 
       window.backToTruckLoadsList = function() {
+        document.getElementById('adminSectionContainer').innerHTML = '';
         showAdminSection('truckLoads');
-        setTimeout(() => {
-          document.getElementById('adminSectionContainer').scrollIntoView({ behavior: 'smooth' });
-        }, 50);
       }
     </script>
     <script>
