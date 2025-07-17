@@ -110,6 +110,28 @@
         gap: 12px;
         margin-bottom: 24px;
       }
+      .filter-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 8px;
+        max-width: 350px;
+      }
+      .filter-label {
+        min-width: 60px;
+        text-align: right;
+        font-size: 1em;
+        color: #555;
+      }
+      .csv-export-group {
+        margin-bottom: 24px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #eee;
+        max-width: 350px;
+      }
+      @media (max-width: 600px) {
+        .filter-row, .csv-export-group { max-width: 100%; }
+      }
     </style>
     <!-- Supabase client CDN -->
     <!-- <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm" type="module"></script> -->
@@ -584,14 +606,46 @@
           let html = '<h3>Reports</h3>';
           html += '<button onclick="exportReportCSV()">Export as CSV</button>';
           html += '<div id="reportSummary">Loading...</div>';
-          // Insert CSV export UI here
-          html += `<div id=\"csvExportSection\" style=\"margin-top:24px;display:flex;flex-direction:column;gap:10px;\">\n`
-            + `<div><b>Payroll Report</b><br><label>From: <input type=\"date\" id=\"payrollFrom\"></label><label>To: <input type=\"date\" id=\"payrollTo\"></label><button onclick=\"exportPayrollCSV()\">Export Payroll CSV</button></div>\n`
-            + `<div><b>Truck Loads</b><br><label>From: <input type=\"date\" id=\"truckLoadsFrom\"></label><label>To: <input type=\"date\" id=\"truckLoadsTo\"></label><button onclick=\"exportTruckLoadsCSV()\">Export Truck Loads CSV</button></div>\n`
-            + `<div><b>Deductions</b><br><label>From: <input type=\"date\" id=\"deductionsFrom\"></label><label>To: <input type=\"date\" id=\"deductionsTo\"></label><label>Cutter: <select id=\"deductionsCutter\"></select></label><button onclick=\"exportDeductionsCSV()\">Export Deductions CSV</button></div>\n`
-            + `<div><b>Config/Settings</b><br><button onclick=\"exportConfigCSV()\">Export Config CSV</button></div>\n`
-            + `<div><b>Individual Cutter</b><br><label>Cutter: <select id=\"individualCutter\"></select></label><label>From: <input type=\"date\" id=\"individualCutterFrom\"></label><label>To: <input type=\"date\" id=\"individualCutterTo\"></label><button onclick=\"exportIndividualCutterCSV()\">Export Individual Cutter CSV</button></div>\n`
-            + `<div><b>Field Productivity</b><br><label>Field: <select id=\"fieldProductivityField\"></select></label><label>From: <input type=\"date\" id=\"fieldProductivityFrom\"></label><label>To: <input type=\"date\" id=\"fieldProductivityTo\"></label><button onclick=\"exportFieldProductivityCSV()\">Export Field Productivity CSV</button></div>\n`
+          // Insert improved CSV export UI here
+          html += `<div id="csvExportSection" style="margin-top:24px;">
+`
+            + `<div class="csv-export-group"><b>Payroll Report</b><br>
+                <div class="filter-row"><span class="filter-label">From:</span><input type="date" id="payrollFrom"></div>
+                <div class="filter-row"><span class="filter-label">To:</span><input type="date" id="payrollTo"></div>
+                <button onclick="exportPayrollCSV()">Export Payroll CSV</button>
+              </div>
+`
+            + `<div class="csv-export-group"><b>Truck Loads</b><br>
+                <div class="filter-row"><span class="filter-label">From:</span><input type="date" id="truckLoadsFrom"></div>
+                <div class="filter-row"><span class="filter-label">To:</span><input type="date" id="truckLoadsTo"></div>
+                <button onclick="exportTruckLoadsCSV()">Export Truck Loads CSV</button>
+              </div>
+`
+            + `<div class="csv-export-group"><b>Deductions</b><br>
+                <div class="filter-row"><span class="filter-label">From:</span><input type="date" id="deductionsFrom"></div>
+                <div class="filter-row"><span class="filter-label">To:</span><input type="date" id="deductionsTo"></div>
+                <div class="filter-row"><span class="filter-label">Cutter:</span><select id="deductionsCutter"></select></div>
+                <button onclick="exportDeductionsCSV()">Export Deductions CSV</button>
+              </div>
+`
+            + `<div class="csv-export-group"><b>Config/Settings</b><br>
+                <button onclick="exportConfigCSV()">Export Config CSV</button>
+              </div>
+`
+            + `<div class="csv-export-group"><b>Individual Cutter</b><br>
+                <div class="filter-row"><span class="filter-label">Cutter:</span><select id="individualCutter"></select></div>
+                <div class="filter-row"><span class="filter-label">From:</span><input type="date" id="individualCutterFrom"></div>
+                <div class="filter-row"><span class="filter-label">To:</span><input type="date" id="individualCutterTo"></div>
+                <button onclick="exportIndividualCutterCSV()">Export Individual Cutter CSV</button>
+              </div>
+`
+            + `<div class="csv-export-group"><b>Field Productivity</b><br>
+                <div class="filter-row"><span class="filter-label">Field:</span><select id="fieldProductivityField"></select></div>
+                <div class="filter-row"><span class="filter-label">From:</span><input type="date" id="fieldProductivityFrom"></div>
+                <div class="filter-row"><span class="filter-label">To:</span><input type="date" id="fieldProductivityTo"></div>
+                <button onclick="exportFieldProductivityCSV()">Export Field Productivity CSV</button>
+              </div>
+`
             + `</div>`;
           container.innerHTML = html;
           loadReportSummary();
