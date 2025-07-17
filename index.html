@@ -175,10 +175,16 @@
         transition: background 0.2s;
         min-width: 140px;
         box-sizing: border-box;
+        outline: none;
       }
       .config-toggle-btn.active {
         background: #4CAF50;
         color: white;
+        outline: none;
+      }
+      .config-toggle-btn:focus {
+        outline: none;
+        box-shadow: 0 0 0 2px #2196F3;
       }
       .config-section {
         display: none;
