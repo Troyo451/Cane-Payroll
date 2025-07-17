@@ -458,10 +458,10 @@
 
       let cachedCutters = [];
 
-      async function cacheCutters() {
-        // Try to fetch from Supabase, else use localStorage
+      async function cacheCutters(forceOnline = false) {
+        // Try to fetch from Supabase if online or forced, else use localStorage
         let cutters = [];
-        let online = navigator.onLine;
+        let online = navigator.onLine || forceOnline;
         if (online) {
           const { data, error } = await supabase.from('canecutters').select('cutter_id, name, surname');
           if (!error && data) {
@@ -477,7 +477,11 @@
       }
 
       function renderCutterOptions(selectedId) {
-        return cachedCutters.map(cutter => `<option value="${cutter.cutter_id}" ${selectedId === cutter.cutter_id ? 'selected' : ''}>${cutter.name} ${cutter.surname}</option>`).join('');
+        if (!cachedCutters || cachedCutters.length === 0) {
+          return '<option value="">No cutters available offline. Please go online once to sync.</option>';
+        }
+        return '<option value="">Select Cutter</option>' +
+          cachedCutters.map(cutter => `<option value="${cutter.cutter_id}" ${selectedId === cutter.cutter_id ? 'selected' : ''}>${cutter.name} ${cutter.surname}</option>`).join('');
       }
 
       function addCutterRow(selectedId = '', weight = '') {
@@ -492,11 +496,23 @@
             <input type="number" class="cutterWeight" min="0" step="0.01" placeholder="Weight (tons)" value="${weight}">
           </div>
           <div style="display:flex;justify-content:center;">
-            <button type="button" onclick="this.parentNode.remove()">Remove</button>
+            <button type="button" class="removeCutterBtn">Remove</button>
           </div>
         `;
         list.appendChild(row);
       }
+
+      // Attach a single event listener for all remove buttons (event delegation)
+      document.addEventListener('click', function(e) {
+        if (e.target && e.target.classList.contains('removeCutterBtn')) {
+          // Remove the closest .cutterRow ancestor
+          const row = e.target.closest('.cutterRow');
+          if (row) {
+            row.remove();
+            updateTotalFieldWeight();
+          }
+        }
+      });
 
       window.addCutterRow = addCutterRow;
 
