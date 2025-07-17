@@ -172,46 +172,6 @@
           <button onclick="showAdminSection('deductions')">Deductions</button>
           <button onclick="showAdminSection('config')">Config</button>
           <button onclick="showAdminSection('reports')">Reports</button>
-          <!-- CSV Export Buttons -->
-          <div id="csvExportSection" style="margin-top:24px;display:flex;flex-direction:column;gap:10px;">
-            <div>
-              <b>Payroll Report</b><br>
-              <label>From: <input type="date" id="payrollFrom"></label>
-              <label>To: <input type="date" id="payrollTo"></label>
-              <button onclick="exportPayrollCSV()">Export Payroll CSV</button>
-            </div>
-            <div>
-              <b>Truck Loads</b><br>
-              <label>From: <input type="date" id="truckLoadsFrom"></label>
-              <label>To: <input type="date" id="truckLoadsTo"></label>
-              <button onclick="exportTruckLoadsCSV()">Export Truck Loads CSV</button>
-            </div>
-            <div>
-              <b>Deductions</b><br>
-              <label>From: <input type="date" id="deductionsFrom"></label>
-              <label>To: <input type="date" id="deductionsTo"></label>
-              <label>Cutter: <select id="deductionsCutter"></select></label>
-              <button onclick="exportDeductionsCSV()">Export Deductions CSV</button>
-            </div>
-            <div>
-              <b>Config/Settings</b><br>
-              <button onclick="exportConfigCSV()">Export Config CSV</button>
-            </div>
-            <div>
-              <b>Individual Cutter</b><br>
-              <label>Cutter: <select id="individualCutter"></select></label>
-              <label>From: <input type="date" id="individualCutterFrom"></label>
-              <label>To: <input type="date" id="individualCutterTo"></label>
-              <button onclick="exportIndividualCutterCSV()">Export Individual Cutter CSV</button>
-            </div>
-            <div>
-              <b>Field Productivity</b><br>
-              <label>Field: <select id="fieldProductivityField"></select></label>
-              <label>From: <input type="date" id="fieldProductivityFrom"></label>
-              <label>To: <input type="date" id="fieldProductivityTo"></label>
-              <button onclick="exportFieldProductivityCSV()">Export Field Productivity CSV</button>
-            </div>
-          </div>
         </div>
         <div id="adminSectionContainer"></div>
       </div>
@@ -623,8 +583,19 @@
           let html = '<h3>Reports</h3>';
           html += '<button onclick="exportReportCSV()">Export as CSV</button>';
           html += '<div id="reportSummary">Loading...</div>';
+          // Insert CSV export UI here
+          html += `<div id=\"csvExportSection\" style=\"margin-top:24px;display:flex;flex-direction:column;gap:10px;\">\n`
+            + `<div><b>Payroll Report</b><br><label>From: <input type=\"date\" id=\"payrollFrom\"></label><label>To: <input type=\"date\" id=\"payrollTo\"></label><button onclick=\"exportPayrollCSV()\">Export Payroll CSV</button></div>\n`
+            + `<div><b>Truck Loads</b><br><label>From: <input type=\"date\" id=\"truckLoadsFrom\"></label><label>To: <input type=\"date\" id=\"truckLoadsTo\"></label><button onclick=\"exportTruckLoadsCSV()\">Export Truck Loads CSV</button></div>\n`
+            + `<div><b>Deductions</b><br><label>From: <input type=\"date\" id=\"deductionsFrom\"></label><label>To: <input type=\"date\" id=\"deductionsTo\"></label><label>Cutter: <select id=\"deductionsCutter\"></select></label><button onclick=\"exportDeductionsCSV()\">Export Deductions CSV</button></div>\n`
+            + `<div><b>Config/Settings</b><br><button onclick=\"exportConfigCSV()\">Export Config CSV</button></div>\n`
+            + `<div><b>Individual Cutter</b><br><label>Cutter: <select id=\"individualCutter\"></select></label><label>From: <input type=\"date\" id=\"individualCutterFrom\"></label><label>To: <input type=\"date\" id=\"individualCutterTo\"></label><button onclick=\"exportIndividualCutterCSV()\">Export Individual Cutter CSV</button></div>\n`
+            + `<div><b>Field Productivity</b><br><label>Field: <select id=\"fieldProductivityField\"></select></label><label>From: <input type=\"date\" id=\"fieldProductivityFrom\"></label><label>To: <input type=\"date\" id=\"fieldProductivityTo\"></label><button onclick=\"exportFieldProductivityCSV()\">Export Field Productivity CSV</button></div>\n`
+            + `</div>`;
           container.innerHTML = html;
           loadReportSummary();
+          populateCutterDropdowns();
+          populateFieldDropdown();
         }
       }
 
