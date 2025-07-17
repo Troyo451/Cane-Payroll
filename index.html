@@ -772,7 +772,7 @@
           return;
         }
         let html = `<div><b>Truck:</b> ${loadData.truck_number} <b>Date:</b> ${loadData.date} <b>Fields:</b> ${(loadData.field_numbers || []).join(', ')}</div>`;
-        html += `<div style="display:flex;align-items:center;gap:12px;"><label for="millWeightInput">Mill Weight (tons):</label> <input type="number" id="millWeightInput" value="${loadData.mill_weight || ''}" min="0" step="0.01"> <button class="config-action-btn" onclick="saveMillWeight('${truckLoadId}')">Save</button> <button class="config-action-btn" onclick="showAdminSection('truckLoads')">Back to List</button></div>`;
+        html += `<div style="display:flex;align-items:center;gap:12px;"><label for="millWeightInput">Mill Weight (tons):</label> <input type="number" id="millWeightInput" value="${loadData.mill_weight || ''}" min="0" step="0.01"> <button class="config-action-btn" onclick="saveMillWeight('${truckLoadId}')">Save</button> <button class="config-action-btn" onclick="backToTruckLoadsList()">Back to List</button></div>`;
         let totalFieldWeight = cuttersData.reduce((sum, c) => sum + (c.field_weight || 0), 0);
         let millWeight = loadData.mill_weight || 0;
         html += '<table><tr><th>Cutter</th><th>Field Weight</th><th>Adjusted Weight</th></tr>';
@@ -794,6 +794,14 @@
         if (!error) {
           alert('Mill weight saved. Adjusted weights updated.');
           showAdminSection('truckLoads');
+          setTimeout(() => {
+            document.getElementById('adminSectionContainer').scrollIntoView({ behavior: 'smooth' });
+          }, 50);
+          // Optionally clear detail view content
+          setTimeout(() => {
+            document.getElementById('adminSectionContainer').innerHTML = '';
+            showAdminSection('truckLoads');
+          }, 100);
         } else {
           alert('Error saving mill weight: ' + error.message);
         }
@@ -1579,6 +1587,17 @@
 
       window.clearUIFRateForm = function() {
         document.getElementById('uifRateFormContainer').innerHTML = '';
+      }
+
+      window.backToTruckLoadsList = function() {
+        showAdminSection('truckLoads');
+        setTimeout(() => {
+          document.getElementById('adminSectionContainer').scrollIntoView({ behavior: 'smooth' });
+        }, 50);
+        setTimeout(() => {
+          document.getElementById('adminSectionContainer').innerHTML = '';
+          showAdminSection('truckLoads');
+        }, 100);
       }
     </script>
     <script>
