@@ -1510,10 +1510,19 @@
         if (from) data = data.filter(row => row.date >= from);
         if (to) data = data.filter(row => row.date <= to);
         if (field) data = data.filter(row => (row.field_numbers||[]).includes(field));
+        // Fetch all truck_cutters for these truck_load_ids
+        const truckLoadIds = data.map(row => row.id);
+        let allTruckCutters = [];
+        if (truckLoadIds.length > 0) {
+          let { data: allTC } = await supabase.from('truck_cutters').select('truck_load_id');
+          if (allTC) allTruckCutters = allTC;
+        }
         let csv = 'Field,Date,Total Tons Cut,Number of Cutters,Average Tons per Cutter\n';
         data.forEach(row => {
-          const numCutters = row.total_field_weight && row.total_field_weight > 0 && row.mill_weight ? row.total_field_weight/row.mill_weight : '';
-          csv += `"${(row.field_numbers||[]).join(', ')}",${row.date},${row.total_field_weight||''},${row.num_cutters||''},${row.avg_tons_per_cutter||''}\n`;
+          const numCutters = allTruckCutters.filter(tc => tc.truck_load_id === row.id).length;
+          const totalTons = row.total_field_weight || 0;
+          const avgTons = numCutters > 0 ? (totalTons / numCutters).toFixed(2) : 'N/A';
+          csv += `"${(row.field_numbers||[]).join(', ')}",${row.date},${totalTons || 0},${numCutters || 0},${avgTons}\n`;
         });
         downloadCSV(`field_productivity_${field||'all'}_${from||'all'}_${to||'all'}.csv`, csv);
       };
