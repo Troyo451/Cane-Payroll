@@ -673,7 +673,7 @@
         } else if (section === 'cutters') {
           let html = `<h3>Cutter Management</h3>`;
           html += `<div id="cutterFormContainer"></div>`;
-          html += `<button onclick="showAddCutterForm()">Add New Cutter</button>`;
+          html += `<button class="config-action-btn" onclick="showAddCutterForm()">Add New Cutter</button>`;
           html += `<div id="adminCuttersList">Loading...</div>`;
           container.innerHTML = html;
           await loadCuttersList();
@@ -826,7 +826,7 @@
         data.forEach(row => {
           html += '<tr>';
           keys.forEach(key => { html += `<td>${row[key]}</td>`; });
-          html += `<td><div style='display:flex;justify-content:center;'><button onclick="showEditCutterForm('${row.id}')">Edit</button> <button onclick="deleteCutter('${row.id}')">Delete</button></div></td>`;
+          html += `<td><div style='display:flex;justify-content:center;'><button class="config-action-btn" onclick="showEditCutterForm('${row.id}')">Edit</button> <button class="config-action-btn" onclick="deleteCutter('${row.id}')">Delete</button></div></td>`;
           html += '</tr>';
         });
         html += '</table>';
