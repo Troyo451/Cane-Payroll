@@ -42,7 +42,21 @@
 | adj_weight   | numeric   | Adjusted (mill) weight|
 | ...          | ...       | ...                   |
 
-### config
+### wage_scale
+| Field         | Type      | Description           |
+|--------------|-----------|-----------------------|
+| id           | uuid      | Primary key           |
+| min_tons     | numeric   | Minimum tons (incl.)  |
+| max_tons     | numeric   | Maximum tons (excl.)  |
+| rate_per_ton | numeric   | Wage per ton (R)      |
+
+### uif_rate
+| Field         | Type      | Description           |
+|--------------|-----------|-----------------------|
+| id           | uuid      | Primary key           |
+| rate_percent | numeric   | UIF as % of gross pay |
+
+### config (legacy)
 | Field         | Type      | Description           |
 |--------------|-----------|-----------------------|
 | key          | text      | Config key            |
@@ -54,6 +68,9 @@
 - **truck_loads** 1—* **truck_cutters** (one load, many cutters)
 - **canecutters** 1—* **truck_cutters** (one cutter, many loads)
 - **deductions** links to **canecutters**
+- **wage_scale**: Used for payroll calculation, editable in Config section
+- **uif_rate**: UIF percentage, editable in Config section
+- **config**: Legacy, not used
 
 ---
 

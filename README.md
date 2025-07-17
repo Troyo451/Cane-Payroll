@@ -45,7 +45,9 @@ A robust, offline-first Progressive Web App for capturing and managing sugar can
   - `deductions` – Deductions per cutter
   - `truck_loads` – Each truck's load, date, mill weight, etc.
   - `truck_cutters` – Cutters per truck, field weights, etc.
-  - `config` – Config variables
+  - `wage_scale` – Wage brackets by tons (configurable)
+  - `uif_rate` – UIF percentage (configurable)
+  - `config` – (legacy, not used)
 - **RLS:** Enabled on all tables, open policies for anon key
 - **Relationships:** Each truck_load has many truck_cutters; mill weight is entered/administered later and proportionally adjusts each cutter's weight
 
