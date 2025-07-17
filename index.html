@@ -172,6 +172,46 @@
           <button onclick="showAdminSection('deductions')">Deductions</button>
           <button onclick="showAdminSection('config')">Config</button>
           <button onclick="showAdminSection('reports')">Reports</button>
+          <!-- CSV Export Buttons -->
+          <div id="csvExportSection" style="margin-top:24px;display:flex;flex-direction:column;gap:10px;">
+            <div>
+              <b>Payroll Report</b><br>
+              <label>From: <input type="date" id="payrollFrom"></label>
+              <label>To: <input type="date" id="payrollTo"></label>
+              <button onclick="exportPayrollCSV()">Export Payroll CSV</button>
+            </div>
+            <div>
+              <b>Truck Loads</b><br>
+              <label>From: <input type="date" id="truckLoadsFrom"></label>
+              <label>To: <input type="date" id="truckLoadsTo"></label>
+              <button onclick="exportTruckLoadsCSV()">Export Truck Loads CSV</button>
+            </div>
+            <div>
+              <b>Deductions</b><br>
+              <label>From: <input type="date" id="deductionsFrom"></label>
+              <label>To: <input type="date" id="deductionsTo"></label>
+              <label>Cutter: <select id="deductionsCutter"></select></label>
+              <button onclick="exportDeductionsCSV()">Export Deductions CSV</button>
+            </div>
+            <div>
+              <b>Config/Settings</b><br>
+              <button onclick="exportConfigCSV()">Export Config CSV</button>
+            </div>
+            <div>
+              <b>Individual Cutter</b><br>
+              <label>Cutter: <select id="individualCutter"></select></label>
+              <label>From: <input type="date" id="individualCutterFrom"></label>
+              <label>To: <input type="date" id="individualCutterTo"></label>
+              <button onclick="exportIndividualCutterCSV()">Export Individual Cutter CSV</button>
+            </div>
+            <div>
+              <b>Field Productivity</b><br>
+              <label>Field: <select id="fieldProductivityField"></select></label>
+              <label>From: <input type="date" id="fieldProductivityFrom"></label>
+              <label>To: <input type="date" id="fieldProductivityTo"></label>
+              <button onclick="exportFieldProductivityCSV()">Export Field Productivity CSV</button>
+            </div>
+          </div>
         </div>
         <div id="adminSectionContainer"></div>
       </div>
@@ -1089,6 +1129,161 @@
           setTimeout(updateTotalFieldWeight, 0);
         }
       });
+
+      // --- CSV Export Filter Dropdown Population ---
+      async function populateCutterDropdowns() {
+        const { data, error } = await supabase.from('canecutters').select('cutter_id, name, surname');
+        const options = data && data.length ? data.map(c => `<option value="${c.cutter_id}">${c.name} ${c.surname}</option>`).join('') : '';
+        const cutterSelects = [
+          document.getElementById('deductionsCutter'),
+          document.getElementById('individualCutter')
+        ];
+        cutterSelects.forEach(sel => {
+          if (sel) {
+            sel.innerHTML = '<option value="">All</option>' + options;
+          }
+        });
+      }
+      async function populateFieldDropdown() {
+        const { data, error } = await supabase.from('truck_loads').select('field_numbers');
+        const fields = new Set();
+        if (data && data.length) {
+          data.forEach(row => {
+            (row.field_numbers || []).forEach(f => fields.add(f));
+          });
+        }
+        const fieldSelect = document.getElementById('fieldProductivityField');
+        if (fieldSelect) {
+          fieldSelect.innerHTML = '<option value="">All</option>' + Array.from(fields).map(f => `<option value="${f}">${f}</option>`).join('');
+        }
+      }
+      document.addEventListener('DOMContentLoaded', () => {
+        populateCutterDropdowns();
+        populateFieldDropdown();
+      });
+      // --- CSV Export Logic ---
+      function downloadCSV(filename, csv) {
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+
+      window.exportPayrollCSV = async function() {
+        const from = document.getElementById('payrollFrom').value;
+        const to = document.getElementById('payrollTo').value;
+        // Get all cutters
+        const { data: cutters } = await supabase.from('canecutters').select('*');
+        // Get all truck_cutters with truck_loads (mill_weight, date) in range
+        let { data: truckCutters } = await supabase.from('truck_cutters').select('*, truck_loads(date, mill_weight)').order('cutter_id');
+        if (from) truckCutters = truckCutters.filter(tc => tc.truck_loads && tc.truck_loads.date >= from);
+        if (to) truckCutters = truckCutters.filter(tc => tc.truck_loads && tc.truck_loads.date <= to);
+        // Get all deductions in range
+        let { data: deductions } = await supabase.from('deductions').select('*');
+        if (from) deductions = deductions.filter(d => d.date_of_deduction >= from);
+        if (to) deductions = deductions.filter(d => d.date_of_deduction <= to);
+        // Map cutter_id to name
+        const cutterMap = {};
+        cutters.forEach(c => { cutterMap[c.cutter_id] = c.name + ' ' + c.surname; });
+        // Aggregate
+        const summary = {};
+        truckCutters.forEach(tc => {
+          if (!summary[tc.cutter_id]) summary[tc.cutter_id] = { field: 0, adjusted: 0 };
+          summary[tc.cutter_id].field += tc.field_weight || 0;
+          if (tc.truck_loads && tc.truck_loads.mill_weight && tc.field_weight) {
+            const totalFieldWeight = truckCutters.filter(x => x.truck_load_id === tc.truck_load_id).reduce((sum, x) => sum + (x.field_weight || 0), 0);
+            if (totalFieldWeight > 0) {
+              summary[tc.cutter_id].adjusted += (tc.field_weight / totalFieldWeight) * tc.truck_loads.mill_weight;
+            }
+          }
+        });
+        // Deductions per cutter
+        const deductionMap = {};
+        deductions.forEach(d => {
+          if (!deductionMap[d.cutter_id]) deductionMap[d.cutter_id] = 0;
+          deductionMap[d.cutter_id] += d.amount || 0;
+        });
+        // CSV
+        let csv = 'Cutter,Total Field Weight,Total Adjusted Weight,Total Deductions\n';
+        Object.keys(summary).forEach(cid => {
+          csv += `"${cutterMap[cid] || cid}",${summary[cid].field.toFixed(2)},${summary[cid].adjusted.toFixed(2)},${(deductionMap[cid]||0).toFixed(2)}\n`;
+        });
+        downloadCSV(`payroll_report_${from||'all'}_${to||'all'}.csv`, csv);
+      };
+
+      window.exportTruckLoadsCSV = async function() {
+        const from = document.getElementById('truckLoadsFrom').value;
+        const to = document.getElementById('truckLoadsTo').value;
+        let { data } = await supabase.from('truck_loads').select('*').order('date');
+        if (from) data = data.filter(row => row.date >= from);
+        if (to) data = data.filter(row => row.date <= to);
+        let csv = 'Truck Number,Date,Field Numbers,Total Field Weight,Mill Weight\n';
+        data.forEach(row => {
+          csv += `"${row.truck_number}",${row.date},"${(row.field_numbers||[]).join(', ')}",${row.total_field_weight||''},${row.mill_weight||''}\n`;
+        });
+        downloadCSV(`truck_loads_${from||'all'}_${to||'all'}.csv`, csv);
+      };
+
+      window.exportDeductionsCSV = async function() {
+        const from = document.getElementById('deductionsFrom').value;
+        const to = document.getElementById('deductionsTo').value;
+        const cutter = document.getElementById('deductionsCutter').value;
+        let { data } = await supabase.from('deductions').select('*, canecutters(name, surname)').order('date_of_deduction');
+        if (from) data = data.filter(row => row.date_of_deduction >= from);
+        if (to) data = data.filter(row => row.date_of_deduction <= to);
+        if (cutter) data = data.filter(row => row.cutter_id === cutter);
+        let csv = 'Date,Cutter,Deduction Type,Amount,Reason\n';
+        data.forEach(row => {
+          const cutterName = row.canecutters ? row.canecutters.name + ' ' + row.canecutters.surname : row.cutter_id;
+          csv += `${row.date_of_deduction},"${cutterName}",${row.deduction_type},${row.amount},"${row.reason||''}"\n`;
+        });
+        downloadCSV(`deductions_${from||'all'}_${to||'all'}_${cutter||'all'}.csv`, csv);
+      };
+
+      window.exportConfigCSV = async function() {
+        let { data } = await supabase.from('config').select('*').order('key');
+        let csv = 'Key,Value\n';
+        data.forEach(row => {
+          csv += `"${row.key}","${row.value}"\n`;
+        });
+        downloadCSV('config_settings.csv', csv);
+      };
+
+      window.exportIndividualCutterCSV = async function() {
+        const cutter = document.getElementById('individualCutter').value;
+        const from = document.getElementById('individualCutterFrom').value;
+        const to = document.getElementById('individualCutterTo').value;
+        if (!cutter) { alert('Please select a cutter.'); return; }
+        let { data } = await supabase.from('truck_cutters').select('*, truck_loads(date, field_numbers, mill_weight)').eq('cutter_id', cutter).order('id');
+        if (from) data = data.filter(row => row.truck_loads && row.truck_loads.date >= from);
+        if (to) data = data.filter(row => row.truck_loads && row.truck_loads.date <= to);
+        let csv = 'Date,Truck Number,Field Numbers,Field Weight,Adjusted Weight,Mill Weight\n';
+        data.forEach(row => {
+          csv += `${row.truck_loads ? row.truck_loads.date : ''},${row.truck_loads ? row.truck_loads.truck_number : ''},"${row.truck_loads ? (row.truck_loads.field_numbers||[]).join(', ') : ''}",${row.field_weight||''},${row.adj_weight||''},${row.truck_loads ? row.truck_loads.mill_weight||'' : ''}\n`;
+        });
+        downloadCSV(`individual_cutter_${cutter}_${from||'all'}_${to||'all'}.csv`, csv);
+      };
+
+      window.exportFieldProductivityCSV = async function() {
+        const field = document.getElementById('fieldProductivityField').value;
+        const from = document.getElementById('fieldProductivityFrom').value;
+        const to = document.getElementById('fieldProductivityTo').value;
+        let { data } = await supabase.from('truck_loads').select('*').order('date');
+        if (from) data = data.filter(row => row.date >= from);
+        if (to) data = data.filter(row => row.date <= to);
+        if (field) data = data.filter(row => (row.field_numbers||[]).includes(field));
+        let csv = 'Field,Date,Total Tons Cut,Number of Cutters,Average Tons per Cutter\n';
+        data.forEach(row => {
+          const numCutters = row.total_field_weight && row.total_field_weight > 0 && row.mill_weight ? row.total_field_weight/row.mill_weight : '';
+          csv += `"${(row.field_numbers||[]).join(', ')}",${row.date},${row.total_field_weight||''},${row.num_cutters||''},${row.avg_tons_per_cutter||''}\n`;
+        });
+        downloadCSV(`field_productivity_${field||'all'}_${from||'all'}_${to||'all'}.csv`, csv);
+      };
     </script>
     <script>
       // Register service worker for offline/PWA support
