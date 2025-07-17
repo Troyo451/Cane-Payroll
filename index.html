@@ -794,6 +794,7 @@
         if (!error) {
           alert('Mill weight saved. Adjusted weights updated.');
           document.getElementById('adminSectionContainer').innerHTML = '';
+          currentAdminSection = null;
           setTimeout(() => { showAdminSection('truckLoads'); }, 10);
         } else {
           alert('Error saving mill weight: ' + error.message);
@@ -1584,6 +1585,7 @@
 
       window.backToTruckLoadsList = function() {
         document.getElementById('adminSectionContainer').innerHTML = '';
+        currentAdminSection = null;
         setTimeout(() => { showAdminSection('truckLoads'); }, 10);
       }
     </script>
