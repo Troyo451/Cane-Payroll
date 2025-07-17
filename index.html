@@ -636,26 +636,36 @@
           return;
         }
         currentAdminSection = section;
-        if (section === 'cutters') {
-          if (showAdminSectionCuttersRunning) {
-            console.warn('[Debug] showAdminSection("cutters") called while previous call is still running! Call stack:', new Error().stack);
-            return;
-          }
-          showAdminSectionCuttersRunning = true;
-        }
-        showAdminSectionCounter++;
         const container = document.getElementById('adminSectionContainer');
-        const callTime = new Date().toLocaleTimeString();
-        container.innerHTML = '';
+        container.style.display = '';
+        // Remove configContainer toggling logic
+        // Render config UI dynamically
+        if (section === 'config') {
+          // Render toggles and a placeholder for the sub-section, no .centered-form
+          let html = `
+            <h3>Config</h3>
+            <div class="config-toggle-buttons" style="margin-bottom: 24px;">
+              <button id="wageScaleBtn" class="config-toggle-btn" onclick="renderConfigSubSection('wageScale')">Wage Scale</button>
+              <button id="uifRateBtn" class="config-toggle-btn" onclick="renderConfigSubSection('uifRate')">UIF Rate</button>
+              <button id="deductionCategoriesBtn" class="config-toggle-btn" onclick="renderConfigSubSection('deductionCategories')">Deduction Categories</button>
+            </div>
+            <div id="configSubSectionContainer"></div>
+          `;
+          container.innerHTML = html;
+          // Render the default sub-section (Wage Scale)
+          window.renderConfigSubSection('wageScale');
+          return;
+        }
+        // Section toggling logic
         if (section === 'truckLoads') {
           container.innerHTML = '<h3>Truck Loads</h3><div id="truckLoadsList">Loading...</div>';
           const { data, error } = await supabase.from('truck_loads').select('*').order('date', { ascending: false });
           if (error) {
-            document.getElementById('truckLoadsList').innerHTML = 'Error loading truck loads.';
+            container.innerHTML = 'Error loading truck loads.';
             return;
           }
           if (!data || data.length === 0) {
-            document.getElementById('truckLoadsList').innerHTML = 'No truck loads found.';
+            container.innerHTML = 'No truck loads found.';
             return;
           }
           let html = '<table><tr><th>Truck</th><th>Date</th><th>Fields</th><th>Mill Weight</th><th>Action</th></tr>';
@@ -669,7 +679,7 @@
             </tr>`;
           });
           html += '</table>';
-          document.getElementById('truckLoadsList').innerHTML = html;
+          container.innerHTML = html;
         } else if (section === 'cutters') {
           let html = `<h3>Cutter Management</h3>`;
           html += `<div id="cutterFormContainer"></div>`;
@@ -686,27 +696,6 @@
           html += '<div id="deductionsList">Loading...</div>';
           container.innerHTML = html;
           loadDeductionsList();
-        } else if (section === 'config') {
-          let html = '<h3>Config Variables</h3>';
-          html += `<div class="config-toggle-buttons">
-            <button id="wageScaleBtn" class="config-toggle-btn" onclick="showConfigSection('wageScale')">Wage Scale</button>
-            <button id="uifRateBtn" class="config-toggle-btn" onclick="showConfigSection('uifRate')">UIF Rate</button>
-          </div>`;
-          html += `<div id="wageScaleSection" class="config-section">
-            <div id="wageScaleTableContainer">Loading wage scale...</div>
-            <button class="config-action-btn" onclick="showAddWageBracketForm()">Add Wage Bracket</button>
-            <div id="wageScaleFormContainer"></div>
-          </div>`;
-          html += `<div id="uifRateSection" class="config-section">
-            <div id="uifRateContainer">Loading UIF rate...</div>
-            <button class="config-action-btn" onclick="showEditUIFRateForm()">Edit UIF Rate</button>
-            <div id="uifRateFormContainer"></div>
-          </div>`;
-          container.innerHTML = html;
-          // Default: show wage scale
-          showConfigSection('wageScale');
-          loadWageScaleTable();
-          loadUIFRate();
         } else if (section === 'reports') {
           let html = '<h3>Reports</h3>';
           // Insert improved CSV export UI here
@@ -841,7 +830,7 @@
             <label for='newCutterId'>Cutter ID:</label><input id='newCutterId' required><br>
             <label for='newCutterName'>Name:</label><input id='newCutterName' required><br>
             <label for='newCutterSurname'>Surname:</label><input id='newCutterSurname' required><br>
-            <button type='submit'>Add</button> <button type='button' onclick=\"clearCutterForm()\">Cancel</button>
+            <button type='submit' class='config-action-btn'>Add</button> <button type='button' class='config-action-btn' onclick=\"clearCutterForm()\">Cancel</button>
           </form>`;
       }
 
@@ -878,7 +867,7 @@
             <label for='editCutterId'>Cutter ID:</label><input id='editCutterId' value='${data.cutter_id}' required><br>
             <label for='editCutterName'>Name:</label><input id='editCutterName' value='${data.name}' required><br>
             <label for='editCutterSurname'>Surname:</label><input id='editCutterSurname' value='${data.surname}' required><br>
-            <button type='submit'>Save</button> <button type='button' onclick=\"clearCutterForm()\">Cancel</button>
+            <button type='submit' class='config-action-btn'>Save</button> <button type='button' class='config-action-btn' onclick=\"clearCutterForm()\">Cancel</button>
           </form>`;
       }
 
@@ -929,39 +918,79 @@
           listDiv.innerHTML = 'No deductions found.';
           return;
         }
-        let html = '<table><tr><th>Date</th><th>Cutter</th><th>Type</th><th>Amount</th><th>Reason</th><th>Action</th></tr>';
+        // Deductions table header
+        let html = '<table><tr><th>Date</th><th>Cutter</th><th>Type</th><th>Total Amount</th><th>Subsidy % (farm pays)</th><th>Employee Contribution</th><th>Action</th></tr>';
         data.forEach(ded => {
-          html += `<tr><td>${ded.date_of_deduction}</td><td>${ded.canecutters ? ded.canecutters.name + ' ' + ded.canecutters.surname : ded.cutter_id}</td><td>${ded.deduction_type}</td><td>${ded.amount}</td><td>${ded.reason || ''}</td><td><button class="config-action-btn" onclick="showEditDeductionForm('${ded.id}')">Edit</button> <button class="config-action-btn" onclick="deleteDeduction('${ded.id}')">Delete</button></td></tr>`;
+          html += `<tr><td>${ded.date_of_deduction}</td><td>${ded.canecutters ? ded.canecutters.name + ' ' + ded.canecutters.surname : ded.cutter_id}</td><td>${ded.deduction_type}</td><td>${ded.total_amount}</td><td>${ded.subsidy_percent}</td><td>${ded.employee_deduction}</td><td><button class=\"config-action-btn\" onclick=\"showEditDeductionForm('${ded.id}')\">Edit</button> <button class=\"config-action-btn\" onclick=\"deleteDeduction('${ded.id}')\">Delete</button></td></tr>`;
         });
         html += '</table>';
         listDiv.innerHTML = html;
       }
 
-      window.showAddDeductionForm = function() {
+      window.showAddDeductionForm = async function() {
+        await cacheCutters();
+        await cacheDeductionCategories();
         const formDiv = document.getElementById('deductionFormContainer');
         formDiv.innerHTML = `<h4>Add New Deduction</h4>
           <form onsubmit=\"addDeduction(event)\">
             <label for='deductionDate'>Date:</label><input id='deductionDate' type='date' required><br>
             <label for='deductionCutter'>Cutter:</label><select id='deductionCutter'>${renderCutterOptions('')}</select><br>
-            <label for='deductionType'>Type:</label><input id='deductionType' required><br>
-            <label for='deductionAmount'>Amount:</label><input id='deductionAmount' type='number' step='0.01' required><br>
-            <label for='deductionReason'>Reason:</label><input id='deductionReason'><br>
-            <button type='submit'>Add</button> <button type='button' onclick=\"clearDeductionForm()\">Cancel</button>
+            <label for='deductionCategory'>Category:</label>
+            <select id='deductionCategory' required>
+              <option value="">Select Category</option>
+              ${cachedDeductionCategories.map(cat => `<option value="${cat.name}" data-subsidy="${cat.default_subsidy_percent}">${cat.name}</option>`).join('')}
+            </select><br>
+            <label for='deductionSubsidyPercent'>Subsidy % (farm pays):</label><input id='deductionSubsidyPercent' type='number' step='1' min='0' max='100' placeholder='e.g. 50 for 50%' required><br>
+            <label for='deductionTotalAmount'>Total Amount:</label><input id='deductionTotalAmount' type='number' step='0.01' required><br>
+            <label for='deductionEmployeeContribution'>Employee Contribution:</label><input id='deductionEmployeeContribution' type='number' step='0.01' min='0' readonly><br>
+            <button type='submit' class='config-action-btn'>Add</button> <button type='button' class='config-action-btn' onclick=\"clearDeductionForm()\">Cancel</button>
           </form>`;
-      }
+        // Add event listeners to auto-calculate employee contribution and auto-fill subsidy
+        setTimeout(() => {
+          const totalInput = document.getElementById('deductionTotalAmount');
+          const subsidyInput = document.getElementById('deductionSubsidyPercent');
+          const contribInput = document.getElementById('deductionEmployeeContribution');
+          const categorySelect = document.getElementById('deductionCategory');
+          function updateContribution() {
+            const total = parseFloat(totalInput.value);
+            const subsidy = parseFloat(subsidyInput.value);
+            if (isNaN(total) || isNaN(subsidy)) {
+              contribInput.value = '';
+              return;
+            }
+            contribInput.value = (total - (total * (subsidy / 100))).toFixed(2);
+          }
+          function updateSubsidyFromCategory() {
+            const selected = categorySelect.options[categorySelect.selectedIndex];
+            if (selected && selected.dataset && selected.dataset.subsidy && selected.value) {
+              subsidyInput.value = (parseFloat(selected.dataset.subsidy) * 100).toFixed(0);
+              updateContribution();
+            } else {
+              subsidyInput.value = '';
+              contribInput.value = '';
+            }
+          }
+          totalInput.addEventListener('input', updateContribution);
+          subsidyInput.addEventListener('input', updateContribution);
+          categorySelect.addEventListener('change', updateSubsidyFromCategory);
+          updateSubsidyFromCategory(); // Set initial value
+          updateContribution();
+        }, 0);
+      };
 
       window.addDeduction = async function(e) {
         e.preventDefault();
         const date_of_deduction = document.getElementById('deductionDate').value;
         const cutter_id = document.getElementById('deductionCutter').value;
-        const deduction_type = document.getElementById('deductionType').value.trim();
-        const amount = parseFloat(document.getElementById('deductionAmount').value);
-        const reason = document.getElementById('deductionReason').value.trim();
-        if (!date_of_deduction || !cutter_id || !deduction_type || isNaN(amount)) {
-          alert('All fields except reason are required.');
+        const deduction_category = document.getElementById('deductionCategory').value;
+        const total_amount = parseFloat(document.getElementById('deductionTotalAmount').value);
+        const subsidy_percent = parseFloat(document.getElementById('deductionSubsidyPercent').value) / 100;
+        const employee_contribution = parseFloat(document.getElementById('deductionEmployeeContribution').value);
+        if (!date_of_deduction || !cutter_id || !deduction_category || isNaN(total_amount) || isNaN(subsidy_percent) || isNaN(employee_contribution)) {
+          alert('All fields are required and must be valid.');
           return;
         }
-        const { error } = await supabase.from('deductions').insert([{ date_of_deduction, cutter_id, deduction_type, amount, reason }]);
+        const { error } = await supabase.from('deductions').insert([{ date_of_deduction, cutter_id, deduction_type: deduction_category, total_amount, subsidy_percent, employee_deduction: employee_contribution }]);
         if (!error) {
           alert('Deduction added.');
           clearDeductionForm();
@@ -969,9 +998,11 @@
         } else {
           alert('Error adding deduction: ' + error.message);
         }
-      }
+      };
 
       window.showEditDeductionForm = async function(id) {
+        await cacheCutters();
+        await cacheDeductionCategories();
         const { data, error } = await supabase.from('deductions').select('*').eq('id', id).single();
         if (error || !data) {
           alert('Error loading deduction.');
@@ -982,11 +1013,39 @@
           <form onsubmit=\"editDeduction(event, '${id}')\">
             <label for='editDeductionDate'>Date:</label><input id='editDeductionDate' type='date' value='${data.date_of_deduction}' required><br>
             <label for='editDeductionCutter'>Cutter:</label><select id='editDeductionCutter'>${renderCutterOptions(data.cutter_id)}</select><br>
-            <label for='editDeductionType'>Type:</label><input id='editDeductionType' value='${data.deduction_type}' required><br>
-            <label for='editDeductionAmount'>Amount:</label><input id='editDeductionAmount' type='number' step='0.01' value='${data.amount}' required><br>
-            <label for='editDeductionReason'>Reason:</label><input id='editDeductionReason' value='${data.reason || ''}'><br>
-            <button type='submit'>Save</button> <button type='button' onclick=\"clearDeductionForm()\">Cancel</button>
+            <label for='editDeductionCategory'>Category:</label>
+            <select id='editDeductionCategory' required>
+              <option value="">Select Category</option>
+              ${cachedDeductionCategories.map(cat => `<option value="${cat.name}" data-subsidy="${cat.default_subsidy_percent}"${cat.name === data.deduction_type ? ' selected' : ''}>${cat.name}</option>`).join('')}
+            </select><br>
+            <label for='editDeductionSubsidyPercent'>Subsidy % (farm pays):</label><input id='editDeductionSubsidyPercent' type='number' step='1' min='0' max='100' value='${(data.subsidy_percent * 100).toFixed(0)}' required><br>
+            <label for='editDeductionTotalAmount'>Total Amount:</label><input id='editDeductionTotalAmount' type='number' step='0.01' value='${data.total_amount}' required><br>
+            <label for='editDeductionEmployeeContribution'>Employee Contribution:</label><input id='editDeductionEmployeeContribution' type='number' step='0.01' min='0' value='${(data.total_amount - (data.total_amount * data.subsidy_percent)).toFixed(2)}' readonly><br>
+            <button type='submit' class='config-action-btn'>Save</button> <button type='button' class='config-action-btn' onclick=\"clearDeductionForm()\">Cancel</button>
           </form>`;
+        // Add event listeners to auto-calculate employee contribution and auto-fill subsidy
+        setTimeout(() => {
+          const totalInput = document.getElementById('editDeductionTotalAmount');
+          const subsidyInput = document.getElementById('editDeductionSubsidyPercent');
+          const contribInput = document.getElementById('editDeductionEmployeeContribution');
+          const categorySelect = document.getElementById('editDeductionCategory');
+          function updateContribution() {
+            const total = parseFloat(totalInput.value) || 0;
+            const subsidy = parseFloat(subsidyInput.value) / 100;
+            contribInput.value = (total - (total * subsidy)).toFixed(2);
+          }
+          function updateSubsidyFromCategory() {
+            const selected = categorySelect.options[categorySelect.selectedIndex];
+            if (selected && selected.dataset && selected.dataset.subsidy) {
+              subsidyInput.value = (parseFloat(selected.dataset.subsidy) * 100).toFixed(0);
+              updateContribution();
+            }
+          }
+          totalInput.addEventListener('input', updateContribution);
+          subsidyInput.addEventListener('input', updateContribution);
+          categorySelect.addEventListener('change', updateSubsidyFromCategory);
+          updateContribution();
+        }, 0);
       }
 
       window.editDeduction = async function(e, id) {
@@ -994,13 +1053,14 @@
         const date_of_deduction = document.getElementById('editDeductionDate').value;
         const cutter_id = document.getElementById('editDeductionCutter').value;
         const deduction_type = document.getElementById('editDeductionType').value.trim();
-        const amount = parseFloat(document.getElementById('editDeductionAmount').value);
-        const reason = document.getElementById('editDeductionReason').value.trim();
-        if (!date_of_deduction || !cutter_id || !deduction_type || isNaN(amount)) {
-          alert('All fields except reason are required.');
+        const total_amount = parseFloat(document.getElementById('editDeductionTotalAmount').value);
+        const subsidy_percent = parseFloat(document.getElementById('editDeductionSubsidyPercent').value) / 100;
+        const employee_contribution = parseFloat(document.getElementById('editDeductionEmployeeContribution').value);
+        if (!date_of_deduction || !cutter_id || !deduction_type || isNaN(total_amount) || isNaN(subsidy_percent) || isNaN(employee_contribution)) {
+          alert('All fields are required.');
           return;
         }
-        const { error } = await supabase.from('deductions').update({ date_of_deduction, cutter_id, deduction_type, amount, reason }).eq('id', id);
+        const { error } = await supabase.from('deductions').update({ date_of_deduction, cutter_id, deduction_type, total_amount, subsidy_percent, employee_deduction: employee_contribution }).eq('id', id);
         if (!error) {
           alert('Deduction updated.');
           clearDeductionForm();
@@ -1050,7 +1110,7 @@
           <form onsubmit=\"addConfig(event)\">
             <label for='newConfigKey'>Key:</label><input id='newConfigKey' required><br>
             <label for='newConfigValue'>Value:</label><input id='newConfigValue' required><br>
-            <button type='submit'>Add</button> <button type='button' onclick=\"clearConfigForm()\">Cancel</button>
+            <button type='submit' class='config-action-btn'>Add</button> <button type='button' class='config-action-btn' onclick=\"clearConfigForm()\">Cancel</button>
           </form>`;
       }
 
@@ -1083,7 +1143,7 @@
           <form onsubmit=\"editConfig(event, '${id}')\">
             <label for='editConfigKey'>Key:</label><input id='editConfigKey' value='${data.key}' required><br>
             <label for='editConfigValue'>Value:</label><input id='editConfigValue' value='${data.value}' required><br>
-            <button type='submit'>Save</button> <button type='button' onclick=\"clearConfigForm()\">Cancel</button>
+            <button type='submit' class='config-action-btn'>Save</button> <button type='button' class='config-action-btn' onclick=\"clearConfigForm()\">Cancel</button>
           </form>`;
       }
 
@@ -1300,38 +1360,46 @@
         // Aggregate
         const summary = {};
         truckCutters.forEach(tc => {
-          if (!summary[tc.cutter_id]) summary[tc.cutter_id] = { field: 0, adjusted: 0, gross: 0 };
+          if (!summary[tc.cutter_id]) summary[tc.cutter_id] = { field: 0, adjusted: 0 };
           summary[tc.cutter_id].field += tc.field_weight || 0;
+          // Calculate adjusted weight for this truck_cutters row
+          let adjusted = 0;
           if (tc.truck_loads && tc.truck_loads.mill_weight && tc.field_weight) {
-            const totalFieldWeight = truckCutters.filter(x => x.truck_load_id === tc.truck_load_id).reduce((sum, x) => sum + (x.field_weight || 0), 0);
+            // Find all truck_cutters for this truck_load_id
+            const truckCuttersForLoad = truckCutters.filter(x => x.truck_load_id === tc.truck_load_id);
+            const totalFieldWeight = truckCuttersForLoad.reduce((sum, x) => sum + (x.field_weight || 0), 0);
             if (totalFieldWeight > 0) {
-              summary[tc.cutter_id].adjusted += (tc.field_weight / totalFieldWeight) * tc.truck_loads.mill_weight;
+              adjusted = (tc.field_weight / totalFieldWeight) * tc.truck_loads.mill_weight;
+              summary[tc.cutter_id].adjusted += adjusted;
             }
           }
-          // Calculate gross pay for this truck load using wage scale
-          let tons = tc.field_weight || 0;
+        });
+        // Calculate gross pay using total adjusted weight for each cutter
+        Object.keys(summary).forEach(cid => {
           let gross = 0;
-          // Wage scale logic: apply correct bracket for all tons cut
+          let maxBracket = wageScale.reduce((max, b) => b.max_tons > max ? b.max_tons : max, 0);
+          if (summary[cid].adjusted > maxBracket) {
+            console.warn(`WARNING: Cutter ${cutterMap[cid] || cid} has ${summary[cid].adjusted} adjusted tons, which exceeds the highest wage scale bracket (max_tons=${maxBracket}). Add a catch-all bracket to wage_scale!`);
+          }
           wageScale.forEach(bracket => {
-            if (tons > 0) {
-              const min = bracket.min_tons;
-              const max = bracket.max_tons;
-              const rate = bracket.rate_per_ton;
-              // Only count tons in this bracket
-              const tonsInBracket = Math.max(0, Math.min(tons, max - min));
-              if (tonsInBracket > 0) {
-                gross += tonsInBracket * rate;
-                tons -= tonsInBracket;
-              }
+            const lower = bracket.min_tons;
+            const upper = bracket.max_tons;
+            const rate = bracket.rate_per_ton;
+            const tonsInBracket = Math.max(0, Math.min(summary[cid].adjusted, upper) - lower);
+            if (tonsInBracket > 0) {
+              const subtotal = tonsInBracket * rate;
+              gross += subtotal;
+              console.log(`  Bracket [${lower}, ${upper}): ${tonsInBracket} tons at R${rate}/ton = R${subtotal}`);
             }
           });
-          summary[tc.cutter_id].gross += gross;
+          console.log(`  Gross Pay: R${gross}`);
+          summary[cid].gross = gross;
         });
         // Deductions per cutter
         const deductionMap = {};
         deductions.forEach(d => {
           if (!deductionMap[d.cutter_id]) deductionMap[d.cutter_id] = 0;
-          deductionMap[d.cutter_id] += d.amount || 0;
+          deductionMap[d.cutter_id] += d.employee_deduction || 0;
         });
         // CSV
         let csv = 'Cutter,Total Field Weight,Total Adjusted Weight,Gross Pay,UIF,Total Deductions,Net Pay\n';
@@ -1366,10 +1434,10 @@
         if (from) data = data.filter(row => row.date_of_deduction >= from);
         if (to) data = data.filter(row => row.date_of_deduction <= to);
         if (cutter) data = data.filter(row => row.cutter_id === cutter);
-        let csv = 'Date,Cutter,Deduction Type,Amount,Reason\n';
+        let csv = 'Date,Cutter,Deduction Type,Total Amount,Subsidy %,Employee Contribution\n';
         data.forEach(row => {
           const cutterName = row.canecutters ? row.canecutters.name + ' ' + row.canecutters.surname : row.cutter_id;
-          csv += `${row.date_of_deduction},"${cutterName}",${row.deduction_type},${row.amount},"${row.reason||''}"\n`;
+          csv += `${row.date_of_deduction},"${cutterName}",${row.deduction_type},${row.total_amount},${(row.subsidy_percent * 100).toFixed(0)}%,${row.employee_deduction}\n`;
         });
         downloadCSV(`deductions_${from||'all'}_${to||'all'}_${cutter||'all'}.csv`, csv);
       };
@@ -1437,8 +1505,10 @@
       window.showConfigSection = function(which) {
         document.getElementById('wageScaleBtn').classList.toggle('active', which === 'wageScale');
         document.getElementById('uifRateBtn').classList.toggle('active', which === 'uifRate');
-        document.getElementById('wageScaleSection').classList.toggle('active', which === 'wageScale');
-        document.getElementById('uifRateSection').classList.toggle('active', which === 'uifRate');
+        document.getElementById('deductionCategoriesBtn').classList.toggle('active', which === 'deductionCategories');
+        document.getElementById('wageScaleSection').style.display = (which === 'wageScale') ? '' : 'none';
+        document.getElementById('uifRateSection').style.display = (which === 'uifRate') ? '' : 'none';
+        document.getElementById('deductionCategoriesSection').style.display = (which === 'deductionCategories') ? '' : 'none';
       };
 
       // Add JS functions for loading wage scale and UIF rate
@@ -1462,79 +1532,11 @@
         data.forEach(row => {
           html += '<tr>';
           displayKeys.forEach(key => { html += `<td>${row[key]}</td>`; });
-          html += `<td><div style='display:flex;flex-direction:column;align-items:center;gap:0;'>`
-            + `<button class='config-action-btn' onclick="showEditWageBracketForm('${row.id}')">Edit</button>`
-            + `<button class='config-action-btn' onclick="deleteWageBracket('${row.id}')">Delete</button>`
-            + `</div></td>`;
+          html += `<td><div style='display:flex;justify-content:center;'><button class="config-action-btn" onclick="showEditWageBracketForm('${row.id}')">Edit</button> <button class="config-action-btn" onclick="deleteWageBracket('${row.id}')">Delete</button></div></td>`;
           html += '</tr>';
         });
         html += '</table>';
         wageScaleContainer.innerHTML = html;
-      };
-
-      window.showAddWageBracketForm = function() {
-        const formDiv = document.getElementById('wageScaleFormContainer');
-        formDiv.innerHTML = `<h4>Add New Wage Bracket</h4>
-          <form onsubmit="addWageBracket(event)">
-            <label for='newMinTons'>Minimum Tons:</label><input id='newMinTons' type='number' step='0.01' required><br>
-            <label for='newMaxTons'>Maximum Tons:</label><input id='newMaxTons' type='number' step='0.01' required><br>
-            <label for='newRate'>Rate (Rands/Ton):</label><input id='newRate' type='number' step='0.01' required><br>
-            <button type='submit'>Add</button> <button type='button' onclick="clearWageBracketForm()">Cancel</button>
-          </form>`;
-      }
-
-      window.addWageBracket = async function(e) {
-        e.preventDefault();
-        const minTons = parseFloat(document.getElementById('newMinTons').value);
-        const maxTons = parseFloat(document.getElementById('newMaxTons').value);
-        const ratePerTon = parseFloat(document.getElementById('newRate').value);
-        if (isNaN(minTons) || isNaN(maxTons) || isNaN(ratePerTon) || minTons < 0 || maxTons < minTons) {
-          alert('Please enter valid numbers for Min Tons, Max Tons, and Rate.');
-          return;
-        }
-        const { error } = await supabase.from('wage_scale').insert([{ min_tons: minTons, max_tons: maxTons, rate_per_ton: ratePerTon }]);
-        if (!error) {
-          alert('Wage bracket added.');
-          clearWageBracketForm();
-          loadWageScaleTable();
-        } else {
-          alert('Error adding wage bracket: ' + error.message);
-        }
-      }
-
-      window.showEditWageBracketForm = async function(id) {
-        const { data, error } = await supabase.from('wage_scale').select('*').eq('id', id).single();
-        if (error || !data) {
-          alert('Error loading wage bracket.');
-          return;
-        }
-        const formDiv = document.getElementById('wageScaleFormContainer');
-        formDiv.innerHTML = `<h4>Edit Wage Bracket</h4>
-          <form onsubmit="editWageBracket(event, '${id}')">
-            <label for='editMinTons'>Minimum Tons:</label><input id='editMinTons' type='number' step='0.01' value='${data.min_tons}' required><br>
-            <label for='editMaxTons'>Maximum Tons:</label><input id='editMaxTons' type='number' step='0.01' value='${data.max_tons}' required><br>
-            <label for='editRate'>Rate (Rands/Ton):</label><input id='editRate' type='number' step='0.01' value='${data.rate_per_ton}' required><br>
-            <button type='submit'>Save</button> <button type='button' onclick="clearWageBracketForm()">Cancel</button>
-          </form>`;
-      }
-
-      window.editWageBracket = async function(e, id) {
-        e.preventDefault();
-        const minTons = parseFloat(document.getElementById('editMinTons').value);
-        const maxTons = parseFloat(document.getElementById('editMaxTons').value);
-        const ratePerTon = parseFloat(document.getElementById('editRate').value);
-        if (isNaN(minTons) || isNaN(maxTons) || isNaN(ratePerTon) || minTons < 0 || maxTons < minTons) {
-          alert('Please enter valid numbers for Min Tons, Max Tons, and Rate.');
-          return;
-        }
-        const { error } = await supabase.from('wage_scale').update({ min_tons: minTons, max_tons: maxTons, rate_per_ton: ratePerTon }).eq('id', id);
-        if (!error) {
-          alert('Wage bracket updated.');
-          clearWageBracketForm();
-          loadWageScaleTable();
-        } else {
-          alert('Error updating wage bracket: ' + error.message);
-        }
       }
 
       window.deleteWageBracket = async function(id) {
@@ -1564,7 +1566,7 @@
           uifRateContainer.innerHTML = 'No UIF rate found. Add one to get started.';
           return;
         }
-        uifRateContainer.innerHTML = `<div><b>UIF Rate:</b> ${ (data.rate_percent * 100).toFixed(2) }% of gross pay</div>`;
+        uifRateContainer.innerHTML = `<div>${(data.rate_percent * 100).toFixed(2)}% of gross pay</div>`;
       };
 
       window.showEditUIFRateForm = async function() {
@@ -1609,6 +1611,187 @@
         currentAdminSection = null;
         setTimeout(() => { showAdminSection('truckLoads'); }, 10);
       }
+
+      // Add this function to the global scope
+      window.renderConfigSubSection = function(which) {
+        // Toggle button active state
+        document.getElementById('wageScaleBtn').classList.toggle('active', which === 'wageScale');
+        document.getElementById('uifRateBtn').classList.toggle('active', which === 'uifRate');
+        document.getElementById('deductionCategoriesBtn').classList.toggle('active', which === 'deductionCategories');
+        const subSectionContainer = document.getElementById('configSubSectionContainer');
+        if (!subSectionContainer) return;
+        if (which === 'wageScale') {
+          subSectionContainer.innerHTML = `
+            <h4>Wage Scale</h4>
+            <div id="wageScaleTableContainer" style="margin-bottom: 12px;">Loading wage scale...</div>
+            <button class="config-action-btn" style="margin-bottom: 16px;" onclick="showAddWageBracketForm()">Add Wage Bracket</button>
+            <div id="wageScaleFormContainer"></div>
+          `;
+          loadWageScaleTable();
+        } else if (which === 'uifRate') {
+          subSectionContainer.innerHTML = `
+            <h4>UIF Rate</h4>
+            <div id="uifRateContainer" style="margin-bottom: 12px;">Loading UIF rate...</div>
+            <button class="config-action-btn" style="margin-bottom: 16px;" onclick="showEditUIFRateForm()">Edit UIF Rate</button>
+            <div id="uifRateFormContainer"></div>
+          `;
+          loadUIFRate();
+        } else if (which === 'deductionCategories') {
+          subSectionContainer.innerHTML = `
+            <h4>Deduction Categories</h4>
+            <div id="deductionCategoriesTableContainer" style="margin-bottom: 12px;">Loading deduction categories...</div>
+            <button class="config-action-btn" style="margin-bottom: 16px;" onclick="showAddDeductionCategoryForm()">Add Category</button>
+            <div id="deductionCategoryFormContainer"></div>
+          `;
+          if (typeof loadDeductionCategories === 'function') loadDeductionCategories();
+        }
+      };
+
+      // --- Deduction Categories Config Section Loader ---
+      window.loadDeductionCategories = async function() {
+        const container = document.getElementById('deductionCategoriesTableContainer');
+        if (!container) return;
+        container.innerHTML = '<div style="color:gray;">Loading deduction categories...</div>';
+        const { data, error } = await supabase.from('deduction_categories').select('*').order('name');
+        if (error) {
+          container.innerHTML = 'Error loading deduction categories: ' + error.message;
+          return;
+        }
+        if (!data || data.length === 0) {
+          container.innerHTML = '<div style="color:gray;">No deduction categories found. Add one to get started.</div>';
+          return;
+        }
+        let html = '<table border="1" style="border-collapse:collapse;width:100%;"><tr>';
+        html += '<th>Name</th><th>Default Subsidy %</th><th>Action</th></tr>';
+        data.forEach(row => {
+          html += `<tr>`;
+          html += `<td>${row.name}</td>`;
+          html += `<td>${(row.default_subsidy_percent * 100).toFixed(0)}%</td>`;
+          html += `<td><div style='display:flex;justify-content:center;'><button class=\"config-action-btn\" onclick=\"showEditDeductionCategoryForm('${row.id}')\">Edit</button> <button class=\"config-action-btn\" onclick=\"deleteDeductionCategory('${row.id}')\">Delete</button></div></td>`;
+          html += `</tr>`;
+        });
+        html += '</table>';
+        container.innerHTML = html;
+      };
+
+      // --- Add Deduction Category Form ---
+      window.showAddDeductionCategoryForm = function() {
+        const formDiv = document.getElementById('deductionCategoryFormContainer');
+        formDiv.innerHTML = `<h4>Add Deduction Category</h4>
+          <form onsubmit=\"addDeductionCategory(event)\">
+            <label for='newDeductionCategoryName'>Name:</label><input id='newDeductionCategoryName' required><br>
+            <label for='newDeductionCategorySubsidy'>Default Subsidy %:</label><input id='newDeductionCategorySubsidy' type='number' min='0' max='100' step='1' required><br>
+            <button type='submit' class='config-action-btn'>Add</button> <button type='button' class='config-action-btn' onclick=\"clearDeductionCategoryForm()\">Cancel</button>
+          </form>`;
+      };
+
+      window.addDeductionCategory = async function(e) {
+        e.preventDefault();
+        const name = document.getElementById('newDeductionCategoryName').value.trim();
+        const subsidy = parseFloat(document.getElementById('newDeductionCategorySubsidy').value) / 100;
+        if (!name || isNaN(subsidy) || subsidy < 0 || subsidy > 1) {
+          alert('Please enter a valid name and subsidy percent (0-100).');
+          return;
+        }
+        const { error } = await supabase.from('deduction_categories').insert([{ name, default_subsidy_percent: subsidy }]);
+        if (!error) {
+          alert('Deduction category added.');
+          clearDeductionCategoryForm();
+          loadDeductionCategories();
+        } else {
+          alert('Error adding deduction category: ' + error.message);
+        }
+      };
+
+      window.showEditDeductionCategoryForm = async function(id) {
+        const { data, error } = await supabase.from('deduction_categories').select('*').eq('id', id).single();
+        if (error || !data) {
+          alert('Error loading deduction category.');
+          return;
+        }
+        const formDiv = document.getElementById('deductionCategoryFormContainer');
+        formDiv.innerHTML = `<h4>Edit Deduction Category</h4>
+          <form onsubmit=\"editDeductionCategory(event, '${id}')\">
+            <label for='editDeductionCategoryName'>Name:</label><input id='editDeductionCategoryName' value='${data.name}' required><br>
+            <label for='editDeductionCategorySubsidy'>Default Subsidy %:</label><input id='editDeductionCategorySubsidy' type='number' min='0' max='100' step='1' value='${(data.default_subsidy_percent * 100).toFixed(0)}' required><br>
+            <button type='submit' class='config-action-btn'>Save</button> <button type='button' class='config-action-btn' onclick=\"clearDeductionCategoryForm()\">Cancel</button>
+          </form>`;
+      };
+
+      window.editDeductionCategory = async function(e, id) {
+        e.preventDefault();
+        const name = document.getElementById('editDeductionCategoryName').value.trim();
+        const subsidy = parseFloat(document.getElementById('editDeductionCategorySubsidy').value) / 100;
+        if (!name || isNaN(subsidy) || subsidy < 0 || subsidy > 1) {
+          alert('Please enter a valid name and subsidy percent (0-100).');
+          return;
+        }
+        const { error } = await supabase.from('deduction_categories').update({ name, default_subsidy_percent: subsidy }).eq('id', id);
+        if (!error) {
+          alert('Deduction category updated.');
+          clearDeductionCategoryForm();
+          loadDeductionCategories();
+        } else {
+          alert('Error updating deduction category: ' + error.message);
+        }
+      };
+
+      window.deleteDeductionCategory = async function(id) {
+        if (!confirm('Delete this deduction category?')) return;
+        const { error } = await supabase.from('deduction_categories').delete().eq('id', id);
+        if (!error) {
+          alert('Deduction category deleted.');
+          loadDeductionCategories();
+        } else {
+          alert('Error deleting deduction category: ' + error.message);
+        }
+      };
+
+      window.clearDeductionCategoryForm = function() {
+        document.getElementById('deductionCategoryFormContainer').innerHTML = '';
+      };
+
+      // --- Deduction Categories Cache Loader ---
+      window.cachedDeductionCategories = [];
+      window.cacheDeductionCategories = async function() {
+        const { data, error } = await supabase.from('deduction_categories').select('*').order('name');
+        if (!error && data) {
+          window.cachedDeductionCategories = data;
+        } else {
+          window.cachedDeductionCategories = [];
+        }
+      };
+
+      window.showAddWageBracketForm = function() {
+        const formDiv = document.getElementById('wageScaleFormContainer');
+        formDiv.innerHTML = `<h4>Add Wage Bracket</h4>
+          <form onsubmit="addWageBracket(event)">
+            <label for='newMinTons'>Min Tons:</label><input id='newMinTons' type='number' step='0.01' required><br>
+            <label for='newMaxTons'>Max Tons:</label><input id='newMaxTons' type='number' step='0.01' required><br>
+            <label for='newRatePerTon'>Rate (Rands/Ton):</label><input id='newRatePerTon' type='number' step='0.01' required><br>
+            <button type='submit' class='config-action-btn'>Add</button>
+            <button type='button' class='config-action-btn' onclick="clearWageBracketForm()">Cancel</button>
+          </form>`;
+      };
+
+      window.addWageBracket = async function(e) {
+        e.preventDefault();
+        const min_tons = parseFloat(document.getElementById('newMinTons').value);
+        const max_tons = parseFloat(document.getElementById('newMaxTons').value);
+        const rate_per_ton = parseFloat(document.getElementById('newRatePerTon').value);
+        if (isNaN(min_tons) || isNaN(max_tons) || isNaN(rate_per_ton) || min_tons >= max_tons) {
+          alert('Please enter valid min/max tons and rate. Min must be less than max.');
+          return;
+        }
+        const { error } = await supabase.from('wage_scale').insert([{ min_tons, max_tons, rate_per_ton }]);
+        if (!error) {
+          alert('Wage bracket added.');
+          clearWageBracketForm();
+          loadWageScaleTable();
+        } else {
+          alert('Error adding wage bracket: ' + error.message);
+        }
+      };
     </script>
     <script>
       // Register service worker for offline/PWA support
@@ -1623,4 +1806,4 @@
       }
     </script>
   </body>
-</html> 
+</html>
