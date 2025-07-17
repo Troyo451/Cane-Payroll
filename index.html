@@ -1378,11 +1378,30 @@
       };
 
       window.exportConfigCSV = async function() {
-        let { data } = await supabase.from('config').select('*').order('key');
-        let csv = 'Key,Value\n';
-        data.forEach(row => {
-          csv += `"${row.key}","${row.value}"\n`;
-        });
+        let wageScale = [];
+        let uifRate = null;
+        let wageScaleRes = await supabase.from('wage_scale').select('*').order('min_tons');
+        if (wageScaleRes && Array.isArray(wageScaleRes.data)) {
+          wageScale = wageScaleRes.data;
+        }
+        let uifRateRes = await supabase.from('uif_rate').select('*').single();
+        if (uifRateRes && uifRateRes.data) {
+          uifRate = uifRateRes.data;
+        }
+        let csv = 'Config,Value\n';
+        // UIF Rate
+        if (uifRate && typeof uifRate.rate_percent === 'number') {
+          csv += 'UIF Rate (% of gross pay),' + (uifRate.rate_percent * 100).toFixed(2) + '\n';
+        } else {
+          csv += 'UIF Rate (% of gross pay),\n';
+        }
+        // Wage Scale
+        csv += '\nWage Scale\nMin Tons,Max Tons,Rate (Rands/Ton)\n';
+        if (wageScale && wageScale.length > 0) {
+          wageScale.forEach(row => {
+            csv += `${row.min_tons},${row.max_tons},${row.rate_per_ton}\n`;
+          });
+        }
         downloadCSV('config_settings.csv', csv);
       };
 
