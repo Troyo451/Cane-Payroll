@@ -797,11 +797,6 @@
           setTimeout(() => {
             document.getElementById('adminSectionContainer').scrollIntoView({ behavior: 'smooth' });
           }, 50);
-          // Optionally clear detail view content
-          setTimeout(() => {
-            document.getElementById('adminSectionContainer').innerHTML = '';
-            showAdminSection('truckLoads');
-          }, 100);
         } else {
           alert('Error saving mill weight: ' + error.message);
         }
@@ -1594,10 +1589,6 @@
         setTimeout(() => {
           document.getElementById('adminSectionContainer').scrollIntoView({ behavior: 'smooth' });
         }, 50);
-        setTimeout(() => {
-          document.getElementById('adminSectionContainer').innerHTML = '';
-          showAdminSection('truckLoads');
-        }, 100);
       }
     </script>
     <script>
