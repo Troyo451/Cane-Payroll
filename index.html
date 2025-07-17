@@ -207,6 +207,22 @@
         color: #555;
         font-size: 1.1em;
       }
+      .config-action-btn {
+        width: 150px;
+        font-size: 1.1em;
+        padding: 8px 24px;
+        border: none;
+        border-radius: 8px;
+        background: #4CAF50;
+        color: white;
+        cursor: pointer;
+        transition: background 0.2s;
+        box-sizing: border-box;
+        margin: 12px 0;
+      }
+      .config-action-btn:active {
+        background: #45a049;
+      }
     </style>
     <!-- Supabase client CDN -->
     <!-- <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm" type="module"></script> -->
@@ -678,12 +694,12 @@
           </div>`;
           html += `<div id="wageScaleSection" class="config-section">
             <div id="wageScaleTableContainer">Loading wage scale...</div>
-            <button onclick="showAddWageBracketForm()">Add Wage Bracket</button>
+            <button class="config-action-btn" onclick="showAddWageBracketForm()">Add Wage Bracket</button>
             <div id="wageScaleFormContainer"></div>
           </div>`;
           html += `<div id="uifRateSection" class="config-section">
             <div id="uifRateContainer">Loading UIF rate...</div>
-            <button onclick="showEditUIFRateForm()">Edit UIF Rate</button>
+            <button class="config-action-btn" onclick="showEditUIFRateForm()">Edit UIF Rate</button>
             <div id="uifRateFormContainer"></div>
           </div>`;
           container.innerHTML = html;
