@@ -709,7 +709,6 @@
           loadUIFRate();
         } else if (section === 'reports') {
           let html = '<h3>Reports</h3>';
-          html += '<div id="reportSummary">Loading...</div>';
           // Insert improved CSV export UI here
           html += `<div id="csvExportSection" style="margin-top:24px;">
 `
@@ -752,7 +751,6 @@
 `
             + `</div>`;
           container.innerHTML = html;
-          loadReportSummary();
           populateCutterDropdowns();
           populateFieldDropdown();
         }
@@ -1319,13 +1317,20 @@
         let { data: deductions } = await supabase.from('deductions').select('*');
         if (from) deductions = deductions.filter(d => d.date_of_deduction >= from);
         if (to) deductions = deductions.filter(d => d.date_of_deduction <= to);
+        // Get wage scale and UIF rate
+        let wageScale = [];
+        let uifRate = 0.02;
+        let wageScaleRes = await supabase.from('wage_scale').select('*').order('min_tons');
+        if (wageScaleRes && Array.isArray(wageScaleRes.data)) wageScale = wageScaleRes.data;
+        let uifRateRes = await supabase.from('uif_rate').select('*').single();
+        if (uifRateRes && uifRateRes.data && typeof uifRateRes.data.rate_percent === 'number') uifRate = uifRateRes.data.rate_percent;
         // Map cutter_id to name
         const cutterMap = {};
         cutters.forEach(c => { cutterMap[c.cutter_id] = c.name + ' ' + c.surname; });
         // Aggregate
         const summary = {};
         truckCutters.forEach(tc => {
-          if (!summary[tc.cutter_id]) summary[tc.cutter_id] = { field: 0, adjusted: 0 };
+          if (!summary[tc.cutter_id]) summary[tc.cutter_id] = { field: 0, adjusted: 0, gross: 0 };
           summary[tc.cutter_id].field += tc.field_weight || 0;
           if (tc.truck_loads && tc.truck_loads.mill_weight && tc.field_weight) {
             const totalFieldWeight = truckCutters.filter(x => x.truck_load_id === tc.truck_load_id).reduce((sum, x) => sum + (x.field_weight || 0), 0);
@@ -1333,6 +1338,24 @@
               summary[tc.cutter_id].adjusted += (tc.field_weight / totalFieldWeight) * tc.truck_loads.mill_weight;
             }
           }
+          // Calculate gross pay for this truck load using wage scale
+          let tons = tc.field_weight || 0;
+          let gross = 0;
+          // Wage scale logic: apply correct bracket for all tons cut
+          wageScale.forEach(bracket => {
+            if (tons > 0) {
+              const min = bracket.min_tons;
+              const max = bracket.max_tons;
+              const rate = bracket.rate_per_ton;
+              // Only count tons in this bracket
+              const tonsInBracket = Math.max(0, Math.min(tons, max - min));
+              if (tonsInBracket > 0) {
+                gross += tonsInBracket * rate;
+                tons -= tonsInBracket;
+              }
+            }
+          });
+          summary[tc.cutter_id].gross += gross;
         });
         // Deductions per cutter
         const deductionMap = {};
@@ -1341,9 +1364,13 @@
           deductionMap[d.cutter_id] += d.amount || 0;
         });
         // CSV
-        let csv = 'Cutter,Total Field Weight,Total Adjusted Weight,Total Deductions\n';
+        let csv = 'Cutter,Total Field Weight,Total Adjusted Weight,Gross Pay,UIF,Total Deductions,Net Pay\n';
         Object.keys(summary).forEach(cid => {
-          csv += `"${cutterMap[cid] || cid}",${summary[cid].field.toFixed(2)},${summary[cid].adjusted.toFixed(2)},${(deductionMap[cid]||0).toFixed(2)}\n`;
+          const gross = summary[cid].gross;
+          const uif = gross * uifRate;
+          const deductions = deductionMap[cid] || 0;
+          const net = gross - uif - deductions;
+          csv += `"${cutterMap[cid] || cid}",${summary[cid].field.toFixed(2)},${summary[cid].adjusted.toFixed(2)},${gross.toFixed(2)},${uif.toFixed(2)},${deductions.toFixed(2)},${net.toFixed(2)}\n`;
         });
         downloadCSV(`payroll_report_${from||'all'}_${to||'all'}.csv`, csv);
       };
