@@ -682,7 +682,7 @@
         } else if (section === 'deductions') {
           let html = '<h3>Deductions</h3>';
           html += '<div id="deductionFormContainer"></div>';
-          html += '<button onclick="showAddDeductionForm()">Add New Deduction</button>';
+          html += '<button class="config-action-btn" onclick="showAddDeductionForm()">Add New Deduction</button>';
           html += '<div id="deductionsList">Loading...</div>';
           container.innerHTML = html;
           loadDeductionsList();
@@ -931,7 +931,7 @@
         }
         let html = '<table><tr><th>Date</th><th>Cutter</th><th>Type</th><th>Amount</th><th>Reason</th><th>Action</th></tr>';
         data.forEach(ded => {
-          html += `<tr><td>${ded.date_of_deduction}</td><td>${ded.canecutters ? ded.canecutters.name + ' ' + ded.canecutters.surname : ded.cutter_id}</td><td>${ded.deduction_type}</td><td>${ded.amount}</td><td>${ded.reason || ''}</td><td><button onclick=\"showEditDeductionForm('${ded.id}')\">Edit</button> <button onclick=\"deleteDeduction('${ded.id}')\">Delete</button></td></tr>`;
+          html += `<tr><td>${ded.date_of_deduction}</td><td>${ded.canecutters ? ded.canecutters.name + ' ' + ded.canecutters.surname : ded.cutter_id}</td><td>${ded.deduction_type}</td><td>${ded.amount}</td><td>${ded.reason || ''}</td><td><button class="config-action-btn" onclick="showEditDeductionForm('${ded.id}')">Edit</button> <button class="config-action-btn" onclick="deleteDeduction('${ded.id}')">Delete</button></td></tr>`;
         });
         html += '</table>';
         listDiv.innerHTML = html;
