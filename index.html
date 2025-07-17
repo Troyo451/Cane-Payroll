@@ -159,6 +159,34 @@
         background-color: #45a049;
         box-shadow: none;
       }
+      .config-toggle-buttons {
+        display: flex;
+        gap: 16px;
+        margin-bottom: 18px;
+      }
+      .config-toggle-btn {
+        font-size: 1.1em;
+        padding: 8px 24px;
+        border: none;
+        border-radius: 8px;
+        background: #e0e0e0;
+        color: #333;
+        cursor: pointer;
+        transition: background 0.2s;
+        min-width: 140px;
+        box-sizing: border-box;
+      }
+      .config-toggle-btn.active {
+        background: #4CAF50;
+        color: white;
+      }
+      .config-section {
+        display: none;
+        margin-top: 8px;
+      }
+      .config-section.active {
+        display: block;
+      }
       @media (max-width: 600px) {
         .filter-row, .csv-export-group { max-width: 100%; }
       }
@@ -627,11 +655,25 @@
           loadDeductionsList();
         } else if (section === 'config') {
           let html = '<h3>Config Variables</h3>';
-          html += '<div id="configFormContainer"></div>';
-          html += '<button onclick="showAddConfigForm()">Add New Variable</button>';
-          html += '<div id="configList">Loading...</div>';
+          html += `<div class="config-toggle-buttons">
+            <button id="wageScaleBtn" class="config-toggle-btn" onclick="showConfigSection('wageScale')">Wage Scale</button>
+            <button id="uifRateBtn" class="config-toggle-btn" onclick="showConfigSection('uifRate')">UIF Rate</button>
+          </div>`;
+          html += `<div id="wageScaleSection" class="config-section">
+            <div id="wageScaleTableContainer">Loading wage scale...</div>
+            <button onclick="showAddWageBracketForm()">Add Wage Bracket</button>
+            <div id="wageScaleFormContainer"></div>
+          </div>`;
+          html += `<div id="uifRateSection" class="config-section">
+            <div id="uifRateContainer">Loading UIF rate...</div>
+            <button onclick="showEditUIFRateForm()">Edit UIF Rate</button>
+            <div id="uifRateFormContainer"></div>
+          </div>`;
           container.innerHTML = html;
-          loadConfigList();
+          // Default: show wage scale
+          showConfigSection('wageScale');
+          loadWageScaleTable();
+          loadUIFRate();
         } else if (section === 'reports') {
           let html = '<h3>Reports</h3>';
           html += '<div id="reportSummary">Loading...</div>';
@@ -1339,6 +1381,173 @@
         });
         downloadCSV(`field_productivity_${field||'all'}_${from||'all'}_${to||'all'}.csv`, csv);
       };
+
+      // Add JS functions for toggling config sections
+      window.showConfigSection = function(which) {
+        document.getElementById('wageScaleBtn').classList.toggle('active', which === 'wageScale');
+        document.getElementById('uifRateBtn').classList.toggle('active', which === 'uifRate');
+        document.getElementById('wageScaleSection').classList.toggle('active', which === 'wageScale');
+        document.getElementById('uifRateSection').classList.toggle('active', which === 'uifRate');
+      };
+
+      // Add JS functions for loading wage scale and UIF rate
+      window.loadWageScaleTable = async function() {
+        const wageScaleContainer = document.getElementById('wageScaleTableContainer');
+        wageScaleContainer.innerHTML = '<div style="color:gray;">Loading wage scale...</div>';
+        const { data, error } = await supabase.from('wage_scale').select('*').order('min_tons');
+        if (error) {
+          wageScaleContainer.innerHTML = 'Error loading wage scale: ' + error.message;
+          return;
+        }
+        if (!data || data.length === 0) {
+          wageScaleContainer.innerHTML = 'No wage scale brackets found. Add one to get started.';
+          return;
+        }
+        let html = '<table border="1" style="border-collapse:collapse;width:100%;"><tr>';
+        const keys = Object.keys(data[0] || {});
+        keys.forEach(key => { html += `<th>${key}</th>`; });
+        html += '<th>Action</th></tr>';
+        data.forEach(row => {
+          html += '<tr>';
+          keys.forEach(key => { html += `<td>${row[key]}</td>`; });
+          html += `<td><div style='display:flex;justify-content:center;'><button onclick="showEditWageBracketForm('${row.id}')">Edit</button> <button onclick="deleteWageBracket('${row.id}')">Delete</button></div></td>`;
+          html += '</tr>';
+        });
+        html += '</table>';
+        wageScaleContainer.innerHTML = html;
+      };
+
+      window.showAddWageBracketForm = function() {
+        const formDiv = document.getElementById('wageScaleFormContainer');
+        formDiv.innerHTML = `<h4>Add New Wage Bracket</h4>
+          <form onsubmit="addWageBracket(event)">
+            <label for='newMinTons'>Minimum Tons:</label><input id='newMinTons' type='number' step='0.01' required><br>
+            <label for='newMaxTons'>Maximum Tons:</label><input id='newMaxTons' type='number' step='0.01' required><br>
+            <label for='newRate'>Rate (Rands/Ton):</label><input id='newRate' type='number' step='0.01' required><br>
+            <button type='submit'>Add</button> <button type='button' onclick="clearWageBracketForm()">Cancel</button>
+          </form>`;
+      }
+
+      window.addWageBracket = async function(e) {
+        e.preventDefault();
+        const minTons = parseFloat(document.getElementById('newMinTons').value);
+        const maxTons = parseFloat(document.getElementById('newMaxTons').value);
+        const rate = parseFloat(document.getElementById('newRate').value);
+        if (isNaN(minTons) || isNaN(maxTons) || isNaN(rate) || minTons < 0 || maxTons < minTons) {
+          alert('Please enter valid numbers for Min Tons, Max Tons, and Rate.');
+          return;
+        }
+        const { error } = await supabase.from('wage_scale').insert([{ min_tons: minTons, max_tons: maxTons, rate: rate }]);
+        if (!error) {
+          alert('Wage bracket added.');
+          clearWageBracketForm();
+          loadWageScaleTable();
+        } else {
+          alert('Error adding wage bracket: ' + error.message);
+        }
+      }
+
+      window.showEditWageBracketForm = async function(id) {
+        const { data, error } = await supabase.from('wage_scale').select('*').eq('id', id).single();
+        if (error || !data) {
+          alert('Error loading wage bracket.');
+          return;
+        }
+        const formDiv = document.getElementById('wageScaleFormContainer');
+        formDiv.innerHTML = `<h4>Edit Wage Bracket</h4>
+          <form onsubmit="editWageBracket(event, '${id}')">
+            <label for='editMinTons'>Minimum Tons:</label><input id='editMinTons' type='number' step='0.01' value='${data.min_tons}' required><br>
+            <label for='editMaxTons'>Maximum Tons:</label><input id='editMaxTons' type='number' step='0.01' value='${data.max_tons}' required><br>
+            <label for='editRate'>Rate (Rands/Ton):</label><input id='editRate' type='number' step='0.01' value='${data.rate}' required><br>
+            <button type='submit'>Save</button> <button type='button' onclick="clearWageBracketForm()">Cancel</button>
+          </form>`;
+      }
+
+      window.editWageBracket = async function(e, id) {
+        e.preventDefault();
+        const minTons = parseFloat(document.getElementById('editMinTons').value);
+        const maxTons = parseFloat(document.getElementById('editMaxTons').value);
+        const rate = parseFloat(document.getElementById('editRate').value);
+        if (isNaN(minTons) || isNaN(maxTons) || isNaN(rate) || minTons < 0 || maxTons < minTons) {
+          alert('Please enter valid numbers for Min Tons, Max Tons, and Rate.');
+          return;
+        }
+        const { error } = await supabase.from('wage_scale').update({ min_tons: minTons, max_tons: maxTons, rate: rate }).eq('id', id);
+        if (!error) {
+          alert('Wage bracket updated.');
+          clearWageBracketForm();
+          loadWageScaleTable();
+        } else {
+          alert('Error updating wage bracket: ' + error.message);
+        }
+      }
+
+      window.deleteWageBracket = async function(id) {
+        if (!confirm('Delete this wage bracket?')) return;
+        const { error } = await supabase.from('wage_scale').delete().eq('id', id);
+        if (!error) {
+          alert('Wage bracket deleted.');
+          loadWageScaleTable();
+        } else {
+          alert('Error deleting wage bracket: ' + error.message);
+        }
+      }
+
+      window.clearWageBracketForm = function() {
+        document.getElementById('wageScaleFormContainer').innerHTML = '';
+      }
+
+      window.loadUIFRate = async function() {
+        const uifRateContainer = document.getElementById('uifRateContainer');
+        uifRateContainer.innerHTML = '<div style="color:gray;">Loading UIF rate...</div>';
+        const { data, error } = await supabase.from('uif_rate').select('*').single();
+        if (error) {
+          uifRateContainer.innerHTML = 'Error loading UIF rate: ' + error.message;
+          return;
+        }
+        if (!data) {
+          uifRateContainer.innerHTML = 'No UIF rate found. Add one to get started.';
+          return;
+        }
+        uifRateContainer.innerHTML = `<div><b>UIF Rate:</b> ${data.rate.toFixed(2)} Rands/Ton</div>`;
+      };
+
+      window.showEditUIFRateForm = async function() {
+        const uifRateContainer = document.getElementById('uifRateContainer');
+        uifRateContainer.innerHTML = '<div style="color:gray;">Loading UIF rate...</div>';
+        const { data, error } = await supabase.from('uif_rate').select('*').single();
+        if (error || !data) {
+          uifRateContainer.innerHTML = 'Error loading UIF rate.';
+          return;
+        }
+        const formDiv = document.getElementById('uifRateFormContainer');
+        formDiv.innerHTML = `<h4>Edit UIF Rate</h4>
+          <form onsubmit="editUIFRate(event, '${data.id}')">
+            <label for='editUIFRate'>Rate (Rands/Ton):</label><input id='editUIFRate' type='number' step='0.01' value='${data.rate}' required><br>
+            <button type='submit'>Save</button> <button type='button' onclick="clearUIFRateForm()">Cancel</button>
+          </form>`;
+      }
+
+      window.editUIFRate = async function(e, id) {
+        e.preventDefault();
+        const rate = parseFloat(document.getElementById('editUIFRate').value);
+        if (isNaN(rate) || rate < 0) {
+          alert('Please enter a valid UIF rate (must be a number greater than or equal to 0).');
+          return;
+        }
+        const { error } = await supabase.from('uif_rate').update({ rate: rate }).eq('id', id);
+        if (!error) {
+          alert('UIF rate updated.');
+          clearUIFRateForm();
+          loadUIFRate();
+        } else {
+          alert('Error updating UIF rate: ' + error.message);
+        }
+      }
+
+      window.clearUIFRateForm = function() {
+        document.getElementById('uifRateFormContainer').innerHTML = '';
+      }
     </script>
     <script>
       // Register service worker for offline/PWA support
