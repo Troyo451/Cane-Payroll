@@ -1466,12 +1466,12 @@
         e.preventDefault();
         const minTons = parseFloat(document.getElementById('newMinTons').value);
         const maxTons = parseFloat(document.getElementById('newMaxTons').value);
-        const rate = parseFloat(document.getElementById('newRate').value);
-        if (isNaN(minTons) || isNaN(maxTons) || isNaN(rate) || minTons < 0 || maxTons < minTons) {
+        const ratePerTon = parseFloat(document.getElementById('newRate').value);
+        if (isNaN(minTons) || isNaN(maxTons) || isNaN(ratePerTon) || minTons < 0 || maxTons < minTons) {
           alert('Please enter valid numbers for Min Tons, Max Tons, and Rate.');
           return;
         }
-        const { error } = await supabase.from('wage_scale').insert([{ min_tons: minTons, max_tons: maxTons, rate: rate }]);
+        const { error } = await supabase.from('wage_scale').insert([{ min_tons: minTons, max_tons: maxTons, rate_per_ton: ratePerTon }]);
         if (!error) {
           alert('Wage bracket added.');
           clearWageBracketForm();
@@ -1492,7 +1492,7 @@
           <form onsubmit="editWageBracket(event, '${id}')">
             <label for='editMinTons'>Minimum Tons:</label><input id='editMinTons' type='number' step='0.01' value='${data.min_tons}' required><br>
             <label for='editMaxTons'>Maximum Tons:</label><input id='editMaxTons' type='number' step='0.01' value='${data.max_tons}' required><br>
-            <label for='editRate'>Rate (Rands/Ton):</label><input id='editRate' type='number' step='0.01' value='${data.rate}' required><br>
+            <label for='editRate'>Rate (Rands/Ton):</label><input id='editRate' type='number' step='0.01' value='${data.rate_per_ton}' required><br>
             <button type='submit'>Save</button> <button type='button' onclick="clearWageBracketForm()">Cancel</button>
           </form>`;
       }
@@ -1501,12 +1501,12 @@
         e.preventDefault();
         const minTons = parseFloat(document.getElementById('editMinTons').value);
         const maxTons = parseFloat(document.getElementById('editMaxTons').value);
-        const rate = parseFloat(document.getElementById('editRate').value);
-        if (isNaN(minTons) || isNaN(maxTons) || isNaN(rate) || minTons < 0 || maxTons < minTons) {
+        const ratePerTon = parseFloat(document.getElementById('editRate').value);
+        if (isNaN(minTons) || isNaN(maxTons) || isNaN(ratePerTon) || minTons < 0 || maxTons < minTons) {
           alert('Please enter valid numbers for Min Tons, Max Tons, and Rate.');
           return;
         }
-        const { error } = await supabase.from('wage_scale').update({ min_tons: minTons, max_tons: maxTons, rate: rate }).eq('id', id);
+        const { error } = await supabase.from('wage_scale').update({ min_tons: minTons, max_tons: maxTons, rate_per_ton: ratePerTon }).eq('id', id);
         if (!error) {
           alert('Wage bracket updated.');
           clearWageBracketForm();
