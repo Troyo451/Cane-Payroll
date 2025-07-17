@@ -821,12 +821,13 @@
         }
         // Render real cutters table
         let html = '<table border="1" style="border-collapse:collapse;width:100%;"><tr>';
-        const keys = Object.keys(data[0] || {});
-        keys.forEach(key => { html += `<th>${key}</th>`; });
+        const displayKeys = ['name', 'surname'];
+        const displayLabels = ['Name', 'Surname'];
+        displayLabels.forEach(label => { html += `<th>${label}</th>`; });
         html += '<th>Action</th></tr>';
         data.forEach(row => {
           html += '<tr>';
-          keys.forEach(key => { html += `<td>${row[key]}</td>`; });
+          displayKeys.forEach(key => { html += `<td>${row[key]}</td>`; });
           html += `<td><div style='display:flex;justify-content:center;'><button class="config-action-btn" onclick="showEditCutterForm('${row.id}')">Edit</button> <button class="config-action-btn" onclick="deleteCutter('${row.id}')">Delete</button></div></td>`;
           html += '</tr>';
         });
@@ -1438,12 +1439,13 @@
           return;
         }
         let html = '<table border="1" style="border-collapse:collapse;width:100%;"><tr>';
-        const keys = Object.keys(data[0] || {});
-        keys.forEach(key => { html += `<th>${key}</th>`; });
+        const displayKeys = ['min_tons', 'max_tons', 'rate_per_ton'];
+        const displayLabels = ['Min Tons', 'Max Tons', 'Rate (Rands/Ton)'];
+        displayLabels.forEach(label => { html += `<th>${label}</th>`; });
         html += '<th>Action</th></tr>';
         data.forEach(row => {
           html += '<tr>';
-          keys.forEach(key => { html += `<td>${row[key]}</td>`; });
+          displayKeys.forEach(key => { html += `<td>${row[key]}</td>`; });
           html += `<td><div style='display:flex;justify-content:center;'><button onclick="showEditWageBracketForm('${row.id}')">Edit</button> <button onclick="deleteWageBracket('${row.id}')">Delete</button></div></td>`;
           html += '</tr>';
         });
