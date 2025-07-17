@@ -196,6 +196,15 @@
       @media (max-width: 600px) {
         .filter-row, .csv-export-group { max-width: 100%; }
       }
+      .wage-scale-empty-message {
+        max-width: 320px;
+        margin: 0 auto;
+        text-align: center;
+        word-break: break-word;
+        white-space: normal;
+        color: #555;
+        font-size: 1.1em;
+      }
     </style>
     <!-- Supabase client CDN -->
     <!-- <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm" type="module"></script> -->
@@ -1406,7 +1415,7 @@
           return;
         }
         if (!data || data.length === 0) {
-          wageScaleContainer.innerHTML = 'No wage scale brackets found. Add one to get started.';
+          wageScaleContainer.innerHTML = '<div class="wage-scale-empty-message">No wage scale brackets found. Add one to get started.</div>';
           return;
         }
         let html = '<table border="1" style="border-collapse:collapse;width:100%;"><tr>';
