@@ -1446,7 +1446,7 @@
         data.forEach(row => {
           html += '<tr>';
           displayKeys.forEach(key => { html += `<td>${row[key]}</td>`; });
-          html += `<td><div style='display:flex;flex-direction:column;align-items:center;gap:2px;'>`
+          html += `<td><div style='display:flex;flex-direction:column;align-items:center;gap:0;'>`
             + `<button class='config-action-btn' onclick="showEditWageBracketForm('${row.id}')">Edit</button>`
             + `<button class='config-action-btn' onclick="deleteWageBracket('${row.id}')">Delete</button>`
             + `</div></td>`;
